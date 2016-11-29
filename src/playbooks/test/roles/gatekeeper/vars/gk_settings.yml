@@ -1,0 +1,6 @@
+---
+# Path          : src/playbooks/test/roles/gatekeeper/vars/gk_settings.yml
+# Usage         : Gatekeeper specific values stored here
+
+env_url: "http://{{ env }}.mode.com"
+run_test_url: "http://gatekeeper.mode.com/gatekeeper/servlet/RunTest?"

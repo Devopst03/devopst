@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Every talos command has its own generated log.
+# We do not need to rotate these logs.
+
+TALOS_HOME="/home/prod/talos"
+DAYS_TO_KEEP=7
+
+
+/usr/bin/find $TALOS_HOME/log -name "*.log" -type f -mtime +$DAYS_TO_KEEP -exec rm {} \;

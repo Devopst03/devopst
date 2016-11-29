@@ -1,0 +1,14 @@
+---
+# Path          : src/playbooks/newrelic.yml
+# Usage         : Newrelic deployment notifificaiton playbook. Triggers a notification through newrelic's api.
+# Params        : product, user, build_name, env
+
+  - hosts: localhost
+    user: "{{ INSTALL_USER }}"
+
+    vars_files:
+        - group_vars/deploy
+
+    roles:
+
+        - { role: newrelic, when: talos_env == 'production', tags: [ 'deploy', 'newrelic' ] }

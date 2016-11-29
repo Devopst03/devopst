@@ -1,0 +1,13 @@
+{{ previous_motd.stdout }}
+
+TALOS: This host is {{ host_info.host.name }} - {{ BASE_URL }}host/{{ host_info.host.id }}
+
+Installed here:
+{% for product_name, env_name, product_id, services in host_info.products %}
+* {{ product_name }} ({{ '\033[%dm\033[1;37m' % (41 if env_name == 'production' else 44) }}{{ env_name }}{{ '\033[0m' }}) - {{ BASE_URL }}product/{{ product_id }}
+{% for service_name, last_deployment in services %}
+  - {{ service_name }}{% if last_deployment %}{% if last_deployment.installed_build %} [{{ last_deployment.installed_build }}]{% endif %} - {{ BASE_URL }}deploy/{{ last_deployment.deploy_id }}{% endif %}
+
+{% endfor %}
+{% endfor %}
+

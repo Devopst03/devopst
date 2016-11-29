@@ -1,0 +1,18 @@
+---
+# Path          : src/playbooks/build/build.yml
+# Usage         : Main controller playbook for build management.
+# Params        : product name, branch name (both are passed through command line)
+
+
+  - hosts: build
+
+    user: "{{ INSTALL_USER }}"
+
+    roles:
+        - { role: notification, type: build, status: started, tags: [ 'notification' ] }
+        - { role: build_package, tags: [ 'build_package' ] }
+        - { role: notification, type: build, status: finished, tags: [ 'notification' ] }
+
+    post_tasks:
+        - name: print build name
+          debug: "msg='Successfully created a build: {{ build_name }}'"

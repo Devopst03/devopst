@@ -1,0 +1,23 @@
+---
+# Path          : src/playbooks/common/roles/notification/tasks/email.yml
+# Description   : This is an email notificatoin playbook that should run against localhost
+# Params        : type (deploy or build), status (started, finished or failed)
+
+
+   - name: make sure ansible temp dir exists
+     file: path="/tmp/ansible" state=directory
+
+   - set_fact: template_path="/tmp/ansible/ansible_{{ product }}_{{ type }}_email_message_{{ current_time.stdout }}"
+
+
+   - name: create an email message to be sent using a template
+     template:
+          src: "{{ type }}_email_message.j2"
+          dest: "{{ template_path }}"
+
+   - name: send email notification
+     shell: /usr/sbin/sendmail "{{ NOTIFICATION.email.to }}" < "{{ template_path }}"
+     ignore_errors: true
+
+   - name: clean up generated email message from local
+     file: path="{{ template_path }}" state=absent

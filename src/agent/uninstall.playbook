@@ -1,0 +1,13 @@
+---
+# Stop and uninstall talos-agent
+
+  - hosts: all
+
+    vars:
+      install_folder: /home/prod/dependencies/talos-agent
+
+    tasks:
+      - name: Stop talos-agent if running
+        shell: kill `cat {{ install_folder }}/talos-agent.pid` removes={{ install_folder }}/talos-agent.pid
+      - name: Remove talos-agent folder
+        file: path="{{ install_folder }}" state=absent

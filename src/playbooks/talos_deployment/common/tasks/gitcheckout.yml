@@ -1,0 +1,16 @@
+---
+# Path          : src/playbooks/talos_deployment/common/tasks/gitcheckout.yml
+# Description   : The git checkout steps are shared between install and deploy.
+
+
+   - name: set git global configs for user/email
+     shell: git config --global user.name "talos"
+
+   - name: set git global configs for user/email
+     shell: git config --global user.email "talos@mode.com"
+
+   - name: git checkout branch
+     git: repo="{{ TALOS_REPO_URL }}"
+          dest="{{ talos_base }}/"
+          version="{{ branch }}"
+          accept_hostkey=true

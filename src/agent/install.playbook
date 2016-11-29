@@ -1,0 +1,13 @@
+---
+# Install talos-agent on all hosts in an environment
+
+  - hosts: all
+
+    vars:
+      install_folder: /home/prod/dependencies/talos-agent
+
+    tasks:
+      - name: Create root folder
+        file: path={{ install_folder }} state=directory
+      - name: Copy files
+        copy: src=library/talos_agent.py dest={{ install_folder }}/ mode=0755

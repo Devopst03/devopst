@@ -1,0 +1,17 @@
+---
+# Path         : playbooks/inventory/roles/hostinfo/tasks/hosts.yml
+# Usage        : Debug and Testing.
+# Params       : action, entity, name, description
+# Param detail : action, entity, name and description are extra vars
+
+    - name: 'Getting the host facts information'
+      local_action: shell echo "ip='{{ ansible_all_ipv4_addresses.0 }}', mac_id='{{ ansible_default_ipv4.macaddress }}', hardware='{{ ansible_architecture }}', kernel='{{ ansible_kernel }}', os='{{ ansible_distribution }} {{ ansible_distribution_version }}', cpu='{{ ansible_processor.0 }}', disk='{{ diskSize }}', memory='{{ ansible_memtotal_mb }} MB'"
+      register: hostfacts
+      delegate_to: localhost
+
+    - name: 'Update host facts in host table for {{ name }}'
+      local_action: command mysql -h {{ hostvars.localhost.database[talos_env].host }} -u {{ hostvars.localhost.database[talos_env].user }} --password={{ hostvars.localhost.database[talos_env].password}} {{ hostvars.localhost.database[talos_env].name }} --execute="update host set {{ hostfacts.stdout }} where name='{{ inventory_hostname }}'"
+      register: result
+
+    - debug: msg="Host facts updated successfully for {{ name }}"
+      when: result | changed and result.stdout != 0

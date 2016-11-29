@@ -1,0 +1,29 @@
+---
+  - hosts: "{{ env }}"
+
+    user: "{{ INSTALL_USER }}"
+
+    vars:
+       talos_base: "{{ DEPLOY_BASE_DIR }}/talos"
+
+    roles:
+       - { role: "install_talos", when: action == 'install' }
+       - { role: "deploy_talos", when: action == 'deploy' }
+
+
+  - hosts: localhost
+
+    user: "{{ INSTALL_USER }}"
+
+    vars:
+       product: "talos"
+
+    tasks:
+
+       - hipchat:
+            from: "{{ NOTIFICATION.hipchat.from }}"
+            notify: no
+            token: "{{ NOTIFICATION.hipchat.token }}"
+            room: "talos"
+            msg: "branch {{ branch }} has been {{action}}ed to talos-{{env}} by {{ user }} from {{ ansible_hostname }}."
+            color: green

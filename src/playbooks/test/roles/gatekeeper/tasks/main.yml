@@ -1,0 +1,13 @@
+---
+# Path          : src/playbooks/test/roles/gatekeeper/tasks/main.yml
+# Usage         : This role is used to kick off tests through gatekeeper's api
+# Params        : product, build_name, environement
+
+   - include_vars: gk_settings.yml
+
+   - name: kick off a test through gatekeeper's api
+     uri:
+       method: GET
+       url: "{{ run_test_url }}productName={{ product }}&env={{ env }}&url={{ env_url }}&build={{ build_name }}"
+     register: gk_response
+     timeout: 1

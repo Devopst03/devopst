@@ -1,0 +1,15 @@
+#!/bin/sh
+
+product=$(basename `git config remote.origin.url` | cut -d. -f1)
+username=$(basename `git config user.name` | cut -d. -f1)
+getfile="git diff --cached --name-only --diff-filter=ACMRTUXB"
+files=$($getfile)
+
+for i in $files
+do
+    ext="${i##*.}"
+    if [ "$ext" = "php" ] || [ "$ext" = "java" ];
+      then
+        talos -A codesniff -P $product --codesniff-path $i -u $username
+    fi
+done

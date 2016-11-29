@@ -1,0 +1,23 @@
+---
+   - name: Status {{ current_service }}
+     shell: "service {{ current_service }} status"
+     register: status_msg
+     become: yes
+     tags:
+       - restart_services
+
+   - set_fact: status_check="true"
+     when: ('is running' in status_msg.stdout) or ('SUCCESS' in status_msg.stdout) or ('Running as' in status_msg.stdout)
+
+   - set_fact: status_summery="{{ current_service + ' is running' if (status_check is defined and status_check == true) else current_service + ' is not running'}}"
+
+   - set_fact: line_separator="--------------------------------------------------------\n"
+
+   - set_fact: status="{{ line_separator }}Host - {{ inventory_hostname }} , Service - {{ current_service }}\nStatus - {{ status_summery }}"
+
+   - local_action: lineinfile dest="/home/prod/talos/conf/dynamic_host/{{ product}}/{{service_action_id}}/service_status" line="{{ status }}" create=yes state=present
+
+   - local_action: shell cat "/home/prod/talos/conf/dynamic_host/{{ product}}/{{service_action_id}}/service_status"
+     register: status_output
+
+   - debug: var=status_output.stdout_lines

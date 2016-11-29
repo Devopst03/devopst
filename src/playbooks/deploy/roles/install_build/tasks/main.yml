@@ -1,0 +1,127 @@
+---
+# Path          : src/playbooks/deploy/roles/install_build/tasks/main.yml
+# Usage         : This is used to speed up the process of deployment.
+#                 We are downloading the build package on all hosts prior to doing deploy steps.
+#                 This saves time as we are concurrently downloading on all hosts meaning we only have to wait once for the download to complete vs once per group/host
+# Params        : build_name, product
+
+   # pause to make sure there is no more traffic coming in. Wait for all connection to drain.
+   # Ignoring haproxy requests as those come in all the time.
+   - name: drain http connections before continuing
+     shell: netstat -t | grep http | egrep -Ev 'appha3|appha4|csopsapp02|csopsapp03|csopsapp04|csopsapp05' | wc -l
+     register: connections
+     until: connections.stdout == "0"
+     retries: 60
+     delay: 3
+     ignore_errors: true
+     when: env == 'production'
+     tags:
+       - restart_services
+
+   - debug: msg="connections {{ connections.stdout }}"
+     when: env == 'production'
+
+   - name: stop service {{ current_service }}
+     shell: "service {{ current_service }} stop"
+     become: yes
+     ignore_errors: true
+     tags:
+       - restart_services
+
+   - talos_db: service_status=stopped
+
+   - name: make sure /etc/profile.d/production-prompt.sh is in place on production hosts
+     copy: src={{ TALOS_HOME }}/src/utils/production-prompt.sh dest=/etc/profile.d/production-prompt.sh owner=root group=root mode=0644
+     when: env == 'production'
+     become: yes
+
+   - name: remove /etc/profile.d/production-prompt.sh from non-production hosts
+     file: path=/etc/profile.d/production-prompt.sh state=absent
+     when: env != 'production'
+     become: yes
+
+   - name: copy talos repo config to host
+     copy: src={{ TALOS_HOME }}/conf/talos.repo dest=/etc/yum.repos.d/talos.repo owner=root group=root mode=0644
+     become: yes
+
+   - name: copy talos-prod repo config to host (for testing purposes)
+     copy: src={{ TALOS_HOME }}/conf/talos-prod.repo dest=/etc/yum.repos.d/talos-prod.repo owner=root group=root mode=0644
+     when: talos_env != 'production'
+     become: yes
+
+   - name: make sure that a test repo does not exist if deploying from talos prod
+     file: path=/etc/yum.repos.d/talos-prod.repo state=absent
+     when: talos_env == 'production'
+     become: yes
+
+   - name: copy talos dependency repo config to host
+     copy: src={{ TALOS_HOME }}/conf/Mode-Talos.repo dest=/etc/yum.repos.d/Mode-Talos.repo owner=root group=root mode=0644
+     become: yes
+
+   - name: refresh yum cache
+     command: yum clean expire-cache
+     become: yes
+
+#   # Hack to keep dependencies under control
+#   - name: find php-talos version required by yoko
+#     shell: 'yum deplist {{ build_name }} | grep -E "^\s*dependency: php-talos" | perl -pe "s/.* //"'
+#     become: yes
+#     register: required_php_version
+
+#  - name: find installed php-talos version
+#    shell: rpm -qa php-talos | perl -pe 's/^php-talos-//; s/\.x86_64$//;'
+#    register: installed_php_version
+
+#   - debug: msg="PHP - required {{ required_php_version.stdout }} installed {{ installed_php_version.stdout }}"
+#     when: product == 'yoko'
+
+#   - name: remove httpd-talos if we need to clear out old dependencies before installing the new yoko
+#     command: yum -y remove httpd-talos
+#     become: yes
+#     when: product == 'yoko' and (required_php_version.stdout != installed_php_version.stdout)
+#   # ... end hack to keep dependencies under control
+
+   - name: install build
+     shell: yum install {{ build_name }} -y
+     become: yes
+     register: yum_output
+     changed_when: "'Complete!' in yum_output.stdout"
+
+   - name: Installing global dependencies
+     yum: name={{ item }} state=present
+     become: yes
+     with_items: TALOS_HOST_DEPENDENCIES_LIST
+
+   # this covers scenarios when a current build is already installed
+   # or when a newer version is installed and we want to force yum to rollback
+   - name: rollback to a previous version
+     command: yum downgrade {{ build_name }} -y
+     become: yes
+     when: not ( yum_output.changed ) and 'Checking for update' in yum_output.stdout
+
+   - talos_db: installed_build={{ build_name }}
+
+   - name: delete old builds
+     shell: "chdir={{ DEPLOY_DIR }} ls -dt */ | tail -n +{{ DEPLOY_BUILDS_TO_KEEP_NUM }} | xargs rm -rf"
+
+   - name: change permissison to {{ INSTALL_USER }}:{{ INSTALL_USER }} for ~/<product>/releases folder
+     file: path={{ BASE_PRODUCT_DIR }} owner={{ INSTALL_USER }} group={{ INSTALL_USER }} recurse=yes
+     become: yes
+
+   - name: create a product logs folder
+     file: path="{{ DEPLOY_BASE_DIR }}/logs" state=directory owner={{ INSTALL_USER }} group={{ INSTALL_USER }}
+
+   - name: create the system folder
+     file: path="{{ DEPLOY_BASE_DIR }}/system" state=directory owner={{ INSTALL_USER }} group={{ INSTALL_USER }}
+
+   - name: write env name to system/mode-env
+     shell: "echo {{ env }} > {{ DEPLOY_BASE_DIR }}/system/mode-env"
+
+   - name: write product name to system/mode-product
+     shell: "echo {{ product }} > {{ DEPLOY_BASE_DIR }}/system/mode-product"
+
+   - name: write build name to system/mode-build
+     shell: "echo {{ build_name }} > {{ DEPLOY_BASE_DIR }}/system/mode-build"
+
+   - name: log build to system/installed-builds.log
+     shell: 'echo "[`date`] {{ talos_deploy_id}} {{ current_user }} {{ main_service }} {{ build_name }}" >> {{ DEPLOY_BASE_DIR }}/system/installed-builds.log'

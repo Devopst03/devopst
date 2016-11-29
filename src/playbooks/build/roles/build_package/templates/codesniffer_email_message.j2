@@ -1,0 +1,38 @@
+Subject: Product: {{ product }}, Branch: {{ branch }} build has not passed codesniffer check
+From: {{ NOTIFICATION.email.from }}
+To: {{ NOTIFICATION.email.to }}
+Content-Type: text/html; charset="us-ascii"
+Reply-to: {{ NOTIFICATION.email.from }}
+
+<html>
+<body>
+<font face="Courier New" size=3>
+Hello Team,<br>
+Branch: {{ branch }} has failed codesniffer check. Please check the error log for more details,
+<br>
+<br>
+Build initiated by: {{ current_user }}
+<br>
+<br>
+{% if codesniffer_output | failed and codesniffer_output is defined and codesniffer_output.results is defined %}
+Codesniffer Error log:
+   {% for item in codesniffer_output.results %}
+       {% if item.stdout is defined %}
+            {{ item.stdout }}
+       {% endif %}
+    {% endfor %}
+{% endif %}
+<br>
+<br>
+{% if checkstyle_output | failed and checkstyle_output is defined and checkstyle_output.results is defined %}
+CheckStyle Error log:
+   {% for item in checkstyle_output.results %}
+    {% if item.stdout is defined %}
+            {{ item.stdout }}
+       {% endif %}
+    {% endfor %}
+{% endif %}
+<br>
+</font>
+</body>
+</html>

@@ -1,0 +1,11 @@
+---
+
+  - name: "Running Schema Restore"
+    local_action: command /home/prod/talos/src/wrapper/schema_restore.sh -t {{ inventory_hostname }} -u {{ RESTORE_USER_MYSQL }} -p {{ RESTORE_PASSWORD_MYSQL }} -f {{ schemafile }} -x {{ RESTORE_USER_HBASE }}
+  
+  - name: "Running Data Restore"
+    local_action: command /home/prod/talos/src/wrapper/data_restore.sh -t {{ inventory_hostname }} -u {{ RESTORE_USER_MYSQL }} -p {{ RESTORE_PASSWORD_MYSQL }} -f {{ datafile }} -x {{ RESTORE_USER_HBASE }}
+  
+  
+  
+

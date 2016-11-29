@@ -1,0 +1,16 @@
+---
+
+# Path         : playbooks/common/roles/commondata.yml
+# Usage        : Get common logged in user data.
+# Author       : Vivek Danej <vivekda@glam.com>
+# Version      : 1.0
+
+    # Code to check if user has proper privileges to perform given action
+
+    - name: Access Restriction - Get a username of logged in user
+      shell: echo $(whoami)
+      register: userNm
+
+    - name: Access Restriction - Find group/groups of a logged in user
+      command: groups "{{ userNm.stdout }}"
+      register: userGroups

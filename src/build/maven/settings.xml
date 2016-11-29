@@ -1,0 +1,97 @@
+<settings>
+
+  <servers>
+
+    <server>
+
+      <id>dev-repo</id>
+
+      <username>deployment</username>
+
+      <password>deployment123</password>
+
+    </server>
+
+  </servers>
+
+  <profiles>
+
+    <profile>
+
+      <id>dev-repo</id>
+
+      <activation>
+
+        <activeByDefault>true</activeByDefault>
+
+      </activation>
+
+      <repositories>
+
+          <repository>
+
+              <id>central</id>
+
+              <url>http://app81.glam.colo:8081/nexus/content/groups/public/</url>
+
+              <snapshots>
+
+                  <enabled>false</enabled>
+
+              </snapshots>
+
+          </repository>
+
+            <repository>
+
+              <id>snapshots</id>
+
+              <url>http://app81.glam.colo:8081/nexus/content/groups/public-snapshots/</url>
+
+              <releases>
+
+                  <enabled>false</enabled>
+
+              </releases>
+
+          </repository>
+
+      </repositories>
+
+      <pluginRepositories>
+
+          <pluginRepository>
+
+              <id>central</id>
+
+              <url>http://app81.glam.colo:8081/nexus/content/groups/public/</url>
+
+              <snapshots>
+
+                  <enabled>false</enabled>
+
+              </snapshots>
+
+          </pluginRepository>
+
+          <pluginRepository>
+
+              <id>snapshots</id>
+
+              <url>http://app81.glam.colo:8081/nexus/content/groups/public-snapshots/</url>
+
+              <releases>
+
+                  <enabled>false</enabled>
+
+              </releases>
+
+          </pluginRepository>
+
+      </pluginRepositories>
+
+    </profile>
+
+  </profiles>
+
+</settings>

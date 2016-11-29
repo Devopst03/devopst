@@ -1,0 +1,19 @@
+---
+# Path          : src/playbooks/common/roles/notification/tasks/main.yml
+# Params        : type (deploy or build), status (started or finished)
+
+   - name: generate time stamp for the generated email message
+     shell: date +%m.%d.%y.%H%M%S
+     register: current_time
+
+   # the outputlog path is passed through command line from talos
+   # processing the output log to only return real errors while excluding errors that are meant to be ignored
+   # prior to grep, cleaning up the log file from ansi color characters that ansible uses for different types of tasks
+   - name: get log output to report on failures
+     shell: 'sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" {{ outputlog }} | grep -w "fatal:\\|failed:" -A 10 -B 1 | {{ TALOS_HOME }}/src/playbooks/common/roles/notification/files/exclude.sh ignoring 3 9'
+     register: output
+     when: status == 'failed' and caller != 'webapp'
+
+   - include: hipchat.yml
+
+   - include: email.yml

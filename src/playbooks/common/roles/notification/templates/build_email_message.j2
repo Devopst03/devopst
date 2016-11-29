@@ -1,0 +1,35 @@
+{% if status == 'finished' %}
+Subject: {{ product }} build has {{ status }}, build name: {{ build_name }}
+{% elif status == 'started' or status == 'failed' %}
+Subject: {{ product }} build has {{ status }}, branch: {{ branch }}
+{% endif %}
+From: {{ NOTIFICATION.email.from }}
+To: {{ NOTIFICATION.email.to }}
+Content-Type: text/html; charset="us-ascii"
+Reply-to: {{ NOTIFICATION.email.from }}
+
+<html>
+<body>
+<font face="Courier New" size=3>
+<br>
+<br>
+Started by: {{ current_user }}
+<br>
+{% if status == 'finished' %}
+Build name: {{ build_name }}
+<br>
+<br>
+<br>
+Deploy command: talos deploy {{ product }} -E environment -b {{ build_name }}
+{% elif status == 'started' %}
+Branch name: {{ branch }}
+{% elif status == 'failed' %}
+<br>
+{{ outputlog }}:
+<br>
+{{ output.stdout }}
+{% endif %}
+
+</font>
+</body>
+</html>

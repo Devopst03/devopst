@@ -1,0 +1,6 @@
+---
+   - name: Restart {{ current_service }}
+     shell: "service {{ current_service }} restart"
+     become: yes
+     tags:
+       - restart_services

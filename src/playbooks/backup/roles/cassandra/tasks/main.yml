@@ -1,0 +1,61 @@
+---
+################################################################################################
+# PATH             		: /home/prod/talos/src/playbooks/backup/roles/cassandra/tasks/main.yml   #
+# USAGE           		: Main role to take Cassandra backup                                     #
+#                                                                                              #
+# LAST MODIFIED       : brijesh (brijeshs@mode.com)                                            #
+# LAST MODIFIED DATE  : 08 APRIL 2015                                                          #
+################################################################################################
+  
+  ## IF SNAPSHOTNAME IS NOT DEFINED EXIT
+  - name: "Check snapshot directory name"
+    fail: msg="Snapshot directory name is required"
+    when: snapshotname is not defined or snapshotname==""
+     
+  ## CHECK FOR LOCK FILE, IF EXSITS QUIT PROCESS
+  - name: "Check Lock File"
+    shell: if [ ! -f "/tmp/backup.LCK" ]; then touch /tmp/backup.LCK; echo "Not Exists"; else echo "Running"; fi;
+    register: backupStatus
+    failed_when: "'Running' in backupStatus.stdout"
+    
+  - debug: var=backupStatus.stdout    
+         
+  ## CLEAR ALL SNAPSHOTS EXISTING ON THE LOCAL DRIVE
+  - name: "Clear Snapshots"
+    shell: nodetool clearsnapshot
+  
+  ## TAKE BACKUP WITH SNAPSHOT NAME
+  - name: "Take Backup"
+    shell: nodetool snapshot -t {{ snapshotname }}
+    register: nodetoolStatus
+
+  ## BACKUP WILL BE COPIED TO /mnt/backups/cassandra SO MAKING SURE DIRECTORY EXISTS
+  - name: "Check If Backup Directory Exists" 
+    shell: if [ ! -d "/mnt/backups/cassandra/{{ inventory_hostname }}" ]; then mkdir /mnt/backups/cassandra/{{ inventory_hostname }}; fi;
+    
+  ## CREATING DIRECTORY WITH THE SNAPSHOT NAME    
+  - name: "Make snapshot directory"
+    shell: if [ ! -d "/mnt/backups/cassandra/{{ inventory_hostname }}/{{ snapshotname }}" ]; then mkdir /mnt/backups/cassandra/{{ inventory_hostname }}/{{ snapshotname }}; fi;
+    
+  ## COPY SNAPSHOT TO BACKUP DEVICE
+  - name: "Copy Backup to NFSShare"
+    shell: find /var/lib/cassandra/data/* -type d -name snapshots -exec cp -r --parents {} /mnt/backups/cassandra/{{ inventory_hostname }}/{{ snapshotname }} \;
+  
+  ## ZIP THE SNAPSHOT ON THE BACKUP DEVICE
+  - name: "Tar the directory"
+    shell: tar -zcvf /mnt/backups/cassandra/{{ inventory_hostname }}/{{ snapshotname }}.tar.gz /mnt/backups/cassandra/{{ inventory_hostname }}/{{ snapshotname }}
+
+  ## DELETE THE SNAPSHOT FROM THE BACKUP DEVICE                    
+  - name: "Delete Backup Directory"
+    shell: rm -rf /mnt/backups/cassandra/{{ inventory_hostname }}/{{ snapshotname }}
+    
+  ## DELETE BACKUPS OVER 7 DAYS OLD
+  - name: "Delete Backups Older than 7 Days"
+    shell: find /mnt/backups/cassandra/{{ inventory_hostname }}/ -type f -mmin +10 -delete
+    
+  ## REMOVE LOCK FILE
+  - name: "Remove Lock File"
+    shell: rm -f /tmp/backup.LCK
+    
+#  - debug: var=nodetoolStatus.stdout
+#  - debug: var=snapShotList.stdout

@@ -1,0 +1,8 @@
+Host *
+    StrictHostKeyChecking no
+
+#talos account
+Host gitlab.glam.colo
+    HostName gitlab.glam.colo
+        User talos
+            IdentityFile ~/.ssh/gitlab-talos

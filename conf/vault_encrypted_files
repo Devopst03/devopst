@@ -1,0 +1,3 @@
+src/playbooks/talos_deployment/roles/install_talos/vars/dbinfo.yml
+conf/ssh/authorized_keys
+conf/ssh/ssh.keys

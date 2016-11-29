@@ -1,0 +1,13 @@
+---
+# src/playbooks/commmon_tasks/nagios/get_alerts_script.yml
+#
+#
+
+   - name: make sure nagios folder exists locally
+     local_action: file path={{ DEPLOY_BASE_DIR }}/nagios state=directory owner=prod
+
+   - name: get latest set_downtime.py from techops git repo
+     local_action: shell chdir={{ DEPLOY_BASE_DIR }}/nagios curl -O 'http://git.glam.colo/techops/techops_scripts/raw/master/set_downtime.py'
+
+   - name: update permissions on the file
+     local_action: file path={{ DEPLOY_BASE_DIR }}/nagios/set_downtime.py mode=0774

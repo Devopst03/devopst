@@ -1,0 +1,119 @@
+#!/bin/sh
+
+product=$(basename `git config remote.origin.url` | cut -d. -f1)
+declare -A reviewers
+reviewers[yoko]=yoko
+reviewers[hydra]=soprano-reviewer,heisenberg-reviewer
+reviewers[hydra-talos]=soprano-reviewer,heisenberg-reviewer
+reviewers[local-talos]=infrastructure
+reviewers[caviar]=infrastructure
+reviewers[modesearch]=infrastructure
+reviewers[quack-fire]=infrastructure
+reviewers[quackfirecoreapp]=infrastructure
+reviewers[talos]=infrastructure
+reviewers[qa-framework]=consumer-automation-reviewer
+
+
+if [ ${reviewers[${product}]+_} ];
+  then
+    defaultGroup=${reviewers[${product}]}
+else
+    defaultGroup="infrastructure"
+fi
+
+if [ -f "/home/prod/${product}/releases/live/pom.xml" ]
+then
+    mvn clean test
+fi
+
+if [ $? -ne 0 ]
+then
+    echo "Unit tests failed, not pushing"
+    exit 1
+fi
+
+# File containing all the commit sha's already reviewed.
+ARC_FILE=`git config --get reviewboard.arcfile`
+touch $ARC_FILE
+
+get_already_reviewed_commits() {
+    ARC=(`cat $ARC_FILE`)
+}
+
+is_reviewed() {
+    for sha in "${ARC[@]}"
+    do
+        [[ "$sha" == "$1" ]] && return 1;
+    done
+    return 0
+}
+
+frontendGroup=yoko_ui_reviewers
+currentBranch=$(git rev-parse --symbolic-full-name --abbrev-ref HEAD)
+submittedBy=$(git config user.name)
+z40=0000000000000000000000000000000000000000
+isfrontend="false"
+
+while read local_ref local_sha remote_ref remote_sha
+do
+    # Do not generate reviews for new tags and branch.
+    echo "$remote_ref" | grep -q "refs/tags*"
+    if [ $? -eq 0 ] || [ "$local_sha" = $z40 ] || [ "$remote_sha" = $z40 ]
+    then
+        # Handle delete
+        :
+    else
+        # Examine new commits
+        range="$remote_sha..$local_sha"
+
+        commits=$(git rev-list "$range")
+
+        # To log all the commits that came as a merge (mainly to capture merge conflict cases)
+        for commit in $commits
+        do
+            if [ $(git log -1 --pretty=short $commit | sed "s/'/\\\'/g" | xargs | awk '{print $3}')  = "Merge:" ]
+            then
+                BEFORE_MERGE_SHA=$(git log -1 --pretty=short $commit | sed "s/'/\\\'/g" | xargs | awk '{print $4}')
+                AFTER_MERGE_SHA=$(git log -1 --pretty=short $commit | sed "s/'/\\\'/g" | xargs | awk '{print $5}')
+
+                RANGE="$BEFORE_MERGE_SHA..$AFTER_MERGE_SHA"
+                # Gets the list of commits lying in the range in a chronological order.
+                git rev-list "$RANGE" >> $ARC_FILE
+            fi
+        done
+
+         get_already_reviewed_commits
+
+        for commit in $commits
+        do
+            is_reviewed $commit
+            isReviewed=$?
+
+            if [ $isReviewed -ne 1 ]
+            then
+                files=$(git diff-tree --no-commit-id --name-only -r $commit)
+
+                for i in $files
+                do
+                    ext="${i##*.}"
+                    if [ "$ext" = "smarty" ] || [ "$ext" = "less" ] || [ "$ext" = "css" ] || [ "$ext" = "js" ]  || [ "$ext" = "html" ];
+                      then
+                        isfrontend="true"
+                    fi
+                done
+                reviewergroup="$defaultGroup"
+                if [ "$isfrontend" = "true" ];
+                    then
+                            reviewergroup="${reviewergroup},${frontendGroup}"
+                fi
+
+                summary=$(git show $commit --pretty=format:'%h: %s' -s)
+                commitSummary="$currentBranch:$summary"
+
+                rbt post --publish --username=labs-reviewers --password=labsadmin132 --submit-as="$submittedBy" --target-groups="$defaultGroup" --summary="$commitSummary" --guess-description --branch="$currentBranch" $commit
+        fi
+        done
+    fi
+done
+
+exit 0

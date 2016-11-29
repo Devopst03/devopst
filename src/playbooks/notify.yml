@@ -1,0 +1,18 @@
+---
+# Path          : src/playbooks/notify.yml
+# Usage         : Notifificaiton playbook, used to trigger different types of notifications related to build, deploy, etc.
+#               : Can be called independently out side of build and deploy playbooks.
+# Params        : product
+#               : action (build, deploy)
+#               : build_name (if action = deploy)
+#               : branch (if action = build)
+#               : env (if action = deploy)
+#               : status (started,finished,failed)
+
+
+  - hosts: local
+
+    user: "{{ INSTALL_USER }}"
+
+    roles:
+        - { role: notification, tags: ['notification'] }

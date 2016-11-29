@@ -1,0 +1,903 @@
+#!/usr/bin/env python
+
+import os, os.path, pwd, time, sys, yaml, types, re, json, pipes, random
+HERE = os.path.split(__file__)[0]
+TALOS_HOME = os.path.abspath(os.path.join(HERE, '..', '..'))
+sys.path.insert(0, os.path.join(TALOS_HOME, 'lib', 'ansible', 'lib'))
+from ansible.parsing.dataloader import DataLoader
+from ansible.template import Templar
+sys.path.insert(0, os.path.join(TALOS_HOME, 'lib', 'talos'))
+import talos_data
+
+# This is the main Talos entry point.
+
+# Talos orchestrates deployments and builds at Mode.
+
+# https://home.ninginc.com/display/ENG/Project+Talos%3A+Consumer+Product+Build+and+Deployment
+
+class BadRequest(Exception):
+    pass
+
+class ArgMissing(BadRequest):
+    pass
+
+class InvalidOption(BadRequest):
+    pass
+
+def cmd(s):
+    print s
+    return os.system(s)
+
+# define command-line string flags
+command_line_opts = [
+    [ 'action', str, 'Talos actions possible values are [build|deploy|build,deploy|test|start|stop|restart]notify', 'A' ],
+    [ 'product', str, 'Product name for build and deploy, required for all actions', 'P'],
+    [ 'branch', str, 'Branch to build, required for build action', 'B'],
+    [ 'build', str, 'Build name to deploy, required for deploy action', 'b'],
+    [ 'flag', str, 'Flag(artifact/build) to pass to build playbook', 'f'],
+    [ 'env', str, 'Environment name, required for deploy action', 'E'],
+    [ 'host', str, 'Host name, required for start/stop/restart service', 'H' ],
+    [ 'user', str, 'User who is initiating the action, used for reporting and notification purposes, required for all types of actions', 'u'],
+    [ 'service', str, 'only deploy to a specific service. NOTE: this is only for debbuggin, do not let an environment get out of sync!', ''],
+    [ 'verbose', bool, 'Extra verbosity', 'v'],
+    [ 'tags', str, 'Ansible tags to activate (this will ONLY run tasks and playbooks that are tagged with these. Format: tag1,tag2,tag3', ''],
+    [ 'skiptags', str, 'Ansible tags to skip (this will ONLY run sections in playbooks that are NOT tagged with these. Format: tag1,tag2,tag3', ''],
+    [ 'limit', str, 'limit deploy to a single host. This host must be present in inventory management', ''],
+    [ 'module', str, 'Maven package name to build selective mvn modules. If you want to build selective mvn sub modules from mvn pom use this pl option. By default Talos will build all modules.', ''],
+    [ 'codesniff-path', str, 'Path to test codesniffer check', ''],
+    [ 'gktest', bool, 'Flag to kick off post deploy gatekeeper tests. Enable when action=deploy or build,deploy.', ''],
+    [ 'json', bool, 'Output inventory queries as JSON', ''],
+    [ 'full', bool ,'Show full details for dc/env/host/service/product objects in "talos show"', ''],
+    [ 'notify-status', str ,'Overwrite status when triggering a notification from command line, (started, finished, failed). Used by webapp to submit independent notifications', ''],
+    [ 'notifier', str ,'Defines notifier type. Example: gatekeeper (or something else calling through the webapp)', ''],
+    [ 'url', str ,'A status or test results url to be passed, used with stand alone notifications', ''],
+]
+
+# parse command line options
+def parse_command_line(command_line):
+    opts = []
+    args = {}
+    remaining = command_line[:]
+    while len(remaining):
+        o = remaining.pop(0)
+        matched_def = None
+        if o.startswith('--'):
+            # long option
+            for opt in command_line_opts:
+                if opt[0] != o[2:]: continue
+                matched_def = opt
+                break
+            assert matched_def, "unknown opt %s" % o
+        elif o.startswith('-'):
+            assert len(o) == 2, "short opt %s is too long" % o
+            # short option
+            for opt in command_line_opts:
+                if opt[3] != o[1]: continue
+                matched_def = opt
+                break
+            assert matched_def, "unknown opt %s" % o
+        else:
+            opts.append(o)
+        # did we match an option?  if so, find the appropriate value
+        if matched_def:
+            if matched_def[1] is str:
+                args[matched_def[0]] = remaining.pop(0)
+            elif matched_def[1] is bool:
+                args[matched_def[0]] = True
+            else:
+                raise Exception("Unknown arg type %s" % `matched_def[1]`)
+    return opts, args
+
+# turn a dict of ansible flags into a key1=value1 key2=value2 string
+def format_flags(flags):
+    if not flags: return ''
+    return ' '.join("%s='%s'" % (k, v) for k,v in flags.items())
+
+def merge_dicts(*dicts):
+    r = {}
+    for d in dicts:
+        if d is None: continue
+        r.update(d)
+    return r
+
+def guess_command_line():
+    return " ".join(pipes.quote(x) for x in sys.argv)
+
+class TalosJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, talos_data.Entity):
+            return o.json()
+        return json.JSONEncoder.default(self, o)
+
+class TalosCommandLine:
+    def run_playbook(self, playbook, flags=None, inventory=None, tags=None, extra_args=None):
+        cmdline = 'TALOS_HOME="%s" ANSIBLE_CONFIG="%s" ANSIBLE_LOG_PATH="%s" PYTHONPATH=%s/lib/ansible/lib %s/lib/ansible/bin/ansible-playbook %s/src/playbooks/%s -e "%s"' % (
+            TALOS_HOME,
+            os.path.join(TALOS_HOME, 'conf', 'ansible.cfg'),
+            self.ANSIBLE_LOG_PATH,
+            TALOS_HOME,
+            TALOS_HOME,
+            TALOS_HOME,
+            playbook,
+            format_flags(merge_dicts(
+                flags, {
+                    'TALOS_HOME': TALOS_HOME,
+                    'talos_env': self.conf['env'],
+                    'current_user': self.args['user'],
+                })
+            ),
+        )
+        if self.ANSIBLEFLAGS:
+            assert type(self.ANSIBLEFLAGS) == types.ListType
+            cmdline += ' ' + ' '.join(self.ANSIBLEFLAGS)
+        if extra_args:
+            assert type(extra_args) == types.ListType
+            cmdline += ' ' + ' '.join(extra_args)
+        if tags:
+            assert type(tags) == types.ListType
+            cmdline += ' --tags ' + ','.join(tags)
+        if inventory:
+            cmdline += " -i %s" % inventory
+        return cmd(cmdline)
+
+    def notify(self, status, type_, status_url, branch_or_build_or_service, service_success_list='', failed_service='', caller='command_line'):
+        # branch or build_name are interchangeable here so the same param is used for both.
+        # ALlows us to reuse the same notification call for action=build that requires a branchname and deploy which needs the build name.
+        # Caller is used to distinguish if notify has been called from talos command line or by a talos webapp
+        # make sure tags are not passed to notify as build/deploy do not have common tags with notify.
+        # Without this test notify will throw an error.
+
+        if not self.args.get('tags') and not self.args.get('skiptags'):
+            self.run_playbook("notify.yml", {
+                    'product': self.args['product'],
+                    'env': self.args.get('env', ''),
+                    'status': status,
+                    'status_url': status_url,
+                    'type': type_,
+                    'branch': branch_or_build_or_service,
+                    'build_name': branch_or_build_or_service,
+                    'service_action': branch_or_build_or_service,
+                    'serviceSuccessList': service_success_list,
+                    'failedService': failed_service,
+                    'outputlog': self.ANSIBLE_LOG_PATH,
+                    'caller': caller,
+                    })
+
+    def db(self):
+        return talos_data.connect(self.conf['env'])
+
+    def require_db(self):
+        d = self.db()
+        assert d, "Database connection failed for Talos environment %s; check conf/local.conf and src/playbooks/group_vars/all" % self.conf['env']
+        return d
+
+    # Replacement for inventory "action=list ..."
+    # e.g. talos show "entity=host" --json
+    #      is equivalent to
+    #      inventory "action=list entity=host" --format=json
+    def inventory_list(self):
+        db = self.require_db()
+
+        query_args = dict(pair.split("=", 1) for pair in self.opts[0].split())
+        rows = db.query_inventory(query_args, verbose=self.args.get('verbose'))
+        if self.args.get('json'):
+            print json.dumps(rows)
+        else:
+            for line in rows:
+                print line
+
+        # host has one dc and one product, multiple envs, multiple services
+
+        # probably better off thinking of things in terms of products containing services,
+        # and having a host-env-service mapping
+        # only one instance of a particular service for a particular env on a particular host, right?
+
+    def _extract_kv_opts(self):
+        # pull out all key=value args
+        extra = {}
+        opts = self.opts
+        self.opts = []
+        for opt in opts:
+            if opt.find("=") == -1:
+                self.opts.append(opt)
+                continue
+            k, v = opt.split("=", 1)
+            extra[k] = v
+        if len(self.opts) and not len(extra):
+            extra['name'] = self.opts.pop(0)
+        return extra
+
+    def inventory_show(self):
+        # talos show host
+        # talos show host dc=colo
+        # talos show host name=cscpapp12
+        # talos show host product=yoko env=production
+        # talos show env host=cscpapp12
+        if not len(self.opts):
+            self.help()
+
+        # default to 'talos show link'
+        if self.opts[0].find("=") != -1:
+            entity = 'link'
+        else:
+            entity = self.opts.pop(0)
+        meta = self._extract_kv_opts()
+        rows = []
+
+        for row in self.require_db().load(entity, meta):
+            for k in row.keys():
+                if row[k] is None:
+                    del row[k]
+                elif hasattr(row[k], 'strftime'):
+                    row[k] = row[k].strftime("%Y-%m-%d %H:%M:%S")
+            rows.append(row)
+
+        if self.args.get('json'):
+            print json.dumps(rows, cls=TalosJSONEncoder)
+            return
+
+        if not len(rows): return
+
+        # limit what we show to the user unless --full has been specified
+        if self.args.get('full'):
+            keys = None
+        else:
+            keys = {
+                'dc': ['name', 'id'],
+                'env': ['name', 'id'],
+                'host': ['name', 'id', 'data_center_id'],
+                'service': ['name', 'id'],
+                'product': ['name', 'id'],
+                'link': ['product_name', 'env_name', 'service_name', 'host_name'],
+            }.get(entity, None)
+
+        for row in rows:
+            print " ".join("%s=%s" % (k, row[k]) for k in sorted(keys if keys else row.keys()))
+
+        return rows
+
+    # talos add host <name> dc=colo
+    # talos add <env|product|service|dc> <name>
+    def inventory_add(self):
+        if len(self.opts) < 2: raise ArgMissing("Syntax: add <entity type> <name> [<key>=<value> ...]")
+        entity = self.opts.pop(0)
+
+        extra = self._extract_kv_opts()
+
+        # allow both talos add entity name k=v and talos add entity name=name k=v...
+        if not extra.has_key('name'):
+            extra['name'] = self.opts.pop(0)
+
+        db = self.require_db()
+        existing = db.load(entity, extra)
+        if existing:
+            print "Attempt to add duplicate object.  Here's what's currently in the database:"
+            for o in existing:
+                print o
+            return
+        db.add_entity(entity, extra)
+
+    def inventory_rm(self):
+        rows = self.inventory_show()
+        if not rows: return
+
+        if raw_input("Delete %d row%s (y/n)? " % (len(rows), "" if len(rows) == 1 else "s")) != 'y':
+            print "Aborting"
+            return
+
+        for row in rows:
+            print "Deleting %s" % `row`
+            row.delete()
+
+    # talos link product=yoko service=bacon
+    # talos link product=yoko service=bacon env=production host=cscpapp24.glam.colo
+    def inventory_link(self):
+        self.require_db().link_entities(self._extract_kv_opts())
+
+    def inventory_unlink(self):
+        self.require_db().unlink_entities(self._extract_kv_opts())
+
+    def inventory_hostinfo(self):
+        db = self.require_db()
+        opts = self._extract_kv_opts()
+        hosts = db.load('host', opts)
+        if not len(hosts):
+            print "Host not found: %s" % `opts`
+            return
+        host = hosts[0]
+        print "HOST", host
+        for link in db.load('link', {'host_id': host.id}):
+            print "LINK",link
+
+    def newrelic(self, build, deployed_services):
+        if not self.args.get('tags') and not self.args.get('skiptags'):
+            self.run_playbook("newrelic.yml", {
+                    'product': self.args['product'],
+                    'env': self.args.get('env', ''),
+                    'build_name': build,
+                    'outputlog': self.ANSIBLE_LOG_PATH,
+                    'serviceSuccessList': deployed_services
+                    })
+
+    def test(self, build, test_type):
+        if not self.args.get('tags') and not self.args.get('skiptags'):
+            self.expect_param('env', '-E dev11')
+
+            r = self.run_playbook("test.yml", {
+                    'product': self.args['product'],
+                    'env': self.args.get('env', ''),
+                    'build_name': build,
+                    'outputlog': self.ANSIBLE_LOG_PATH,
+                    'test_type': test_type,
+                    })
+
+            if r:
+               self.notify("failed", test_type, "na", self.args['build'])
+               sys.exit(1)
+
+    def build(self):
+        self.expect_param('branch', '-B feature/my-new-feature')
+
+        db = self.db()
+
+        if db:
+            product = db.load_by_name('product', self.args['product'])
+            if not product:
+                print "WARNING: product '%s' is not in the inventory.  Please create it with 'talos add product %s'." % (
+                    self.args['product'], self.args['product'])
+            db.q("""INSERT INTO build SET
+                    status=1,
+                    created_date=NOW(),
+                    log_file_path=%s,
+                    user=%s,
+                    human=%s,
+                    branch=%s,
+                    product=%s,
+                    product_id=%s""", (
+                self.ANSIBLE_LOG_PATH,
+                self.system_user,
+                self.args['user'],
+                self.args['branch'],
+                self.args['product'],
+                product.id if product else None,
+            ))
+            build_id = db.insert_id()
+        else:
+            build_id = random.randint(1, 9999)
+        print "Build ID: %s" % build_id
+        build_url = '%sbuild/%d' % (self.ansible_vars['BASE_URL'], build_id)
+        print "Build URL: %s" % build_url
+
+        r = self.run_playbook("build.yml", {
+                'build_id': build_id,
+                'status_url': build_url,
+                'product': self.args['product'],
+                'branch': self.args['branch'],
+                'outputlog': self.ANSIBLE_LOG_PATH,
+                'module': self.args.get('module', ''),
+                'flag': self.args.get('flag', 'build'),
+                })
+
+        if r:
+            if db: db.q("UPDATE build SET failed_date=NOW() WHERE id=%s", (build_id,))
+            self.notify("failed", "build", build_url, self.args['branch'])
+            sys.exit(1)
+
+    def codesniff(self):
+        self.expect_param('codesniff-path', '--codesniff-path src/main/php')
+
+        r = self.run_playbook("build.yml", {
+                'product': self.args['product'],
+                'module': self.args.get('module', ''),
+                'codesniff_path': self.args['codesniff-path'],
+                'outputlog': self.ANSIBLE_LOG_PATH,
+                 },
+                 tags=['codesniff'],
+                 )
+
+        if r:
+            sys.exit(1)
+
+    def service_action(self):
+        self.expect_param('env', '-E dev11')
+        product = self.args['product']
+        env= self.args['env']
+        service = self.args.get('service', '')
+        host = self.args.get('host', '')
+        action = self.args.get('action', '')
+
+        # Query out all hosts we want to deploy to, and collect hostnames by service
+        all_hosts = {}
+        hosts_by_service = {}
+
+        db = self.require_db()
+
+        product = db.require_by_name('product', self.args['product'])
+        env = db.require_by_name('env', self.args['env'])
+
+        selected_service_name = self.args.get('service')
+        selected_service = None
+
+        for service in product.services(env.id, host):
+            if selected_service_name:
+                if service.name != selected_service_name: continue
+                selected_service = service
+            print "service",service.name
+            assert not hosts_by_service.has_key(service.name)
+            svc_hosts = {}
+
+            for host in product.hosts_by_env_service(env.id, service.id):
+                print "\thost:",host.name
+                host_info = {
+                    'inv_line': '%s host_id=%s service_id=%s env_id=%s product_id=%s' % (host.name, host.id, service.id, env.id, product.id),
+                    'host_id': host.id,
+                    'service_id': service.id,
+                    'env_id': env.id,
+                    'product_id': product.id,
+                    }
+                all_hosts[host.name] = host_info
+                svc_hosts[host.name] = host_info
+
+            if len(svc_hosts):
+                hosts_by_service[service.name] = svc_hosts
+
+        assert len(hosts_by_service), "No services found to " + action + "."
+
+        dynamic_host_folder = os.path.join(TALOS_HOME, 'conf', 'dynamic_host')
+        if not os.path.exists(dynamic_host_folder): os.mkdir(dynamic_host_folder)
+
+        product_deploy_folder = os.path.join(dynamic_host_folder, self.args['product'])
+        if not os.path.exists(product_deploy_folder): os.mkdir(product_deploy_folder)
+
+        # Generate deployment ID
+        db.q("""INSERT INTO service_mgt SET
+                created_date=NOW(), updated_date=NOW(),
+                log_file_path=%s,
+                user=%s, human=%s,
+                action=%s,
+                command_line=%s,
+                product_id=%s, env_id=%s, service_id=%s""", (
+            self.ANSIBLE_LOG_PATH,
+            self.system_user,
+            self.args['user'],
+            action,
+            guess_command_line(),
+            product.id,
+            env.id,
+            selected_service.id if selected_service else None,
+        ))
+        service_action_id = str(db.insert_id())
+        print "Service Action ID: %s" % service_action_id
+        service_action_url = '%sservice_mgt/%s' % (self.ansible_vars['BASE_URL'], service_action_id)
+        print "Service Action URL: %s" % service_action_url
+
+        deploy_folder = os.path.join(product_deploy_folder, service_action_id)
+        if not os.path.exists(deploy_folder): os.mkdir(deploy_folder)
+
+        def split_hosts(fn, hosts):
+            hosts = sorted(hosts)
+            group1 = hosts[:len(hosts)/2]
+            group2 = hosts[len(group1):]
+            f = open(fn, 'w')
+            print>>f, "[group1]"
+            for h in group1:
+                print>>f, h['inv_line']
+            print>>f, "\n[group2]"
+            for h in group2:
+                print>>f, h['inv_line']
+
+        split_hosts(os.path.join(deploy_folder, 'all'), all_hosts.values())
+        for service, hosts in hosts_by_service.items():
+            print "%s hosts: %s" % (service, " ".join(hosts))
+            split_hosts(os.path.join(deploy_folder, service), hosts.values())
+            for host_info in hosts.values():
+                db.q("""INSERT INTO service_mgt_services SET
+                        created_date=NOW(), updated_date=NOW(),
+                        status=1,
+                        service_mgt_id=%s,
+                        host_id=%s,
+                        service_id=%s,
+                        product_id=%s,
+                        env_id=%s""", (
+                    service_action_id,
+                    host_info['host_id'],
+                    host_info['service_id'],
+                    host_info['product_id'],
+                    host_info['env_id'],
+                    ))
+
+        serviceList = hosts_by_service.keys()
+
+        if (action != 'status'):
+            self.notify("started", "service_mgt", service_action_url, action, ','.join(serviceList))
+
+        # A file name called "all" thats generated by inventory management.
+        # Includes all hosts for all services. Can be used in prep steps to deploy something to all hosts simultaneously.
+        TOTAL_HOST_LIST="all"
+
+        # only install and deploy to a specific service if it was passed as a param
+        if self.args.get('service'):
+            TOTAL_HOST_LIST=self.args['service']
+            serviceList=self.args['service'].split()
+
+        # deploy to each service group
+        r = 0
+        status = "finished"
+        successes = []
+        failures = []
+
+        # deploy to each service group
+        for serviceName in serviceList:
+            print "\n*******************************\n\nDeploying to service name: %s\n\n*******************************\n" % serviceName
+
+            inventory_path='%s/conf/dynamic_host/%s/%s/%s' % (TALOS_HOME, self.args['product'], service_action_id, serviceName)
+            #cmd("$EDITOR %s" % inventory_path)
+
+            if (action != 'status'):
+                playbook = 'services.yml'
+            else:
+                playbook = 'service_status.yml'
+
+            r = self.run_playbook(playbook, {
+                    'product': self.args['product'],
+                    'env': env,
+                    'host': host,
+                    'service': serviceName,
+                    'service_action_id': service_action_id,
+                    'service_action': action,
+                    'outputlog': self.ANSIBLE_LOG_PATH,
+                 },
+                 inventory=inventory_path,
+            )
+
+            if r:
+                print "\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\nStopping, service action failed! Check logs for errors.\n\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n"
+                status = "failed"
+                failures.append(serviceName)
+                break
+
+            # keep track of services that were deployed successfuly, to further enhance info included with notifications
+            successes.append(serviceName)
+
+        db.q("UPDATE service_mgt SET success=%s, updated_date=now(), finished_date=now() WHERE id=%s", (0 if status == 'failed' else 1, service_action_id))
+        if (action != 'status'):
+            self.notify(status, "service_mgt", service_action_url, action, ','.join(successes), ','.join(failures))
+
+        if not r:
+            sys.exit(1)
+
+    def deploy(self, build_name):
+        self.expect_param('env', '-E dev11')
+
+        # Update talos.repo descriptor file to include everything in ~/talos-repo
+        self.run_playbook("generate-repo-descriptor.yml")
+
+        # Query out all hosts we want to deploy to, and collect hostnames by service
+        all_hosts = {}
+        hosts_by_service = {}
+
+        db = self.require_db()
+
+        product = db.require_by_name('product', self.args['product'])
+        env = db.require_by_name('env', self.args['env'])
+
+        selected_service_name = self.args.get('service')
+        selected_service = None
+
+        for service in product.services(env.id):
+            if selected_service_name:
+                if service.name != selected_service_name: continue
+                selected_service = service
+            print "service",service.name
+            assert not hosts_by_service.has_key(service.name)
+            svc_hosts = {}
+
+            for host in product.hosts_by_env_service(env.id, service.id):
+                print "\thost:",host.name
+                host_info = {
+                    'inv_line': '%s host_id=%s service_id=%s env_id=%s product_id=%s' % (host.name, host.id, service.id, env.id, product.id),
+                    'host_id': host.id,
+                    'service_id': service.id,
+                    'env_id': env.id,
+                    'product_id': product.id,
+                    }
+                all_hosts[host.name] = host_info
+                svc_hosts[host.name] = host_info
+
+            if len(svc_hosts):
+                hosts_by_service[service.name] = svc_hosts
+
+        assert len(hosts_by_service), "No services found to deploy."
+
+        dynamic_host_folder = os.path.join(TALOS_HOME, 'conf', 'dynamic_host')
+        if not os.path.exists(dynamic_host_folder): os.mkdir(dynamic_host_folder)
+
+        product_deploy_folder = os.path.join(dynamic_host_folder, self.args['product'])
+        if not os.path.exists(product_deploy_folder): os.mkdir(product_deploy_folder)
+
+        # Generate deployment ID
+        db.q("""INSERT INTO deploy SET
+                created_date=NOW(), updated_date=NOW(),
+                log_file_path=%s,
+                user=%s, human=%s,
+                command_line=%s,
+                build_name=%s,
+                product_id=%s, env_id=%s, service_id=%s""", (
+            self.ANSIBLE_LOG_PATH,
+            self.system_user,
+            self.args['user'],
+            guess_command_line(),
+            self.args['build'],
+            product.id,
+            env.id,
+            selected_service.id if selected_service else None,
+        ))
+        deploy_id = str(db.insert_id())
+        print "Deploy ID: %s" % deploy_id
+        deploy_url = '%sdeploy/%s' % (self.ansible_vars['BASE_URL'], deploy_id)
+        print "Deploy URL: %s" % deploy_url
+
+        deploy_folder = os.path.join(product_deploy_folder, deploy_id)
+        if not os.path.exists(deploy_folder): os.mkdir(deploy_folder)
+
+        def split_hosts(fn, hosts):
+            hosts = sorted(hosts)
+            group1 = hosts[:len(hosts)/2]
+            group2 = hosts[len(group1):]
+            f = open(fn, 'w')
+            print>>f, "[group1]"
+            for h in group1:
+                print>>f, h['inv_line']
+            print>>f, "\n[group2]"
+            for h in group2:
+                print>>f, h['inv_line']
+
+        split_hosts(os.path.join(deploy_folder, 'all'), all_hosts.values())
+        for service, hosts in hosts_by_service.items():
+            print "%s hosts: %s" % (service, " ".join(hosts))
+            split_hosts(os.path.join(deploy_folder, service), hosts.values())
+            for host_info in hosts.values():
+                db.q("""INSERT INTO deployed_service SET
+                        created_date=NOW(), updated_date=NOW(),
+                        status=1,
+                        deploy_id=%s,
+                        host_id=%s,
+                        service_id=%s,
+                        product_id=%s,
+                        env_id=%s""", (
+                    deploy_id,
+                    host_info['host_id'],
+                    host_info['service_id'],
+                    host_info['product_id'],
+                    host_info['env_id'],
+                    ))
+
+        serviceList = hosts_by_service.keys()
+
+        self.notify("started", "deploy", deploy_url, build_name)
+
+        # A file name called "all" thats generated by inventory management.
+        # Includes all hosts for all services. Can be used in prep steps to deploy something to all hosts simultaniously.
+        TOTAL_HOST_LIST="all"
+
+        # only install and deploy to a specifc service if it was passed as a param
+        if self.args.get('service'):
+            TOTAL_HOST_LIST=self.args['service']
+            serviceList=self.args['service'].split()
+
+        # deploy to each service group
+        r = 0
+        status = "finished"
+        successes = []
+        failures = []
+
+        # deploy to each service group
+        for serviceName in serviceList:
+            print "\n*******************************\n\nDeploying to service name: %s\n\n*******************************\n" % serviceName
+
+            inventory_path='%s/conf/dynamic_host/%s/%s/%s' % (TALOS_HOME, self.args['product'], deploy_id, serviceName)
+            #cmd("$EDITOR %s" % inventory_path)
+
+            r = self.run_playbook(
+                "deploy.yml",
+                {
+                    'talos_deploy_id': deploy_id,
+                    'product': self.args['product'],
+                    'build_name': build_name,
+                    'deploy_id': deploy_id,
+                    'status_url': deploy_url,
+                    'env': self.args['env'],
+                    'service': serviceName,
+                },
+                inventory=inventory_path,
+            )
+
+            if r:
+                print "\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\nStopping, deploy failed! Check logs for errors.\n\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n"
+                status = "failed"
+                failures.append(serviceName)
+                break
+
+            # keep track of services that were deployed successfuly, to further enhance info included with notifications
+            successes.append(serviceName)
+
+        db.q("UPDATE deploy SET success=%s, updated_date=now(), finished_date=now() WHERE id=%s", (0 if status == 'failed' else 1, deploy_id))
+        self.notify(status, "deploy", deploy_url, build_name, ','.join(successes), ','.join(failures))
+
+        if not r:
+            self.newrelic(build_name, ','.join(successes))
+
+            # kick off gatekeeper tests if deployed successfully
+            if self.args.get('gktest'): self.test(build_name, "gatekeeper")
+
+
+    def help(self):
+        print "USAGE: %s [commands] <flags> [args]" % sys.argv[0]
+        print
+        print "  talos help"
+        print "  talos build <product> -B <branch> -u <username>"
+        print "  talos deploy <product> -b <buildname> -u <username> -E <environment>"
+        print "  talos show host [env=production] [product=yoko] [service=bacon] [...]"
+        print "  talos show <dc|env|service|product> [id=123] [name=production]"
+        print "  talos show link [host=cscpapp12.glam.colo] [env=production] [product=yoko] [...]"
+        print "  talos add host name=<hostname> dc=<datacenter>"
+        print "  talos add <dc|env|service|product> name=<name>"
+        print "  talos link product=<product> service=<service>"
+        print "  talos link product=<product> env=<env> service=<service> host=<host>"
+        print "  talos -A <start|stop|status|restart> -P <product> -E <environment> [-H <hostname> | --service <servicename>] -u <username>"
+        print "           or"
+        print "  talos <start|stop|status|restart> <product> -E <environment> [-H <hostname> | --service <servicename>] -u <username>"
+        print
+        print "flags:"
+        for opt in command_line_opts:
+            h = ['--%s' % opt[0]]
+            if opt[3]: h.insert(0, '-%s' % opt[3])
+            print "  %s:  %s" % (", ".join(h), opt[2])
+        sys.exit(1)
+
+    def expect_param(self, param, example=None):
+        if self.args.get(param): return
+        print "Required parameter missing: --%s" % param
+        if example: print "Example: %s" % example
+        print
+        self.help()
+
+    def __init__(self):
+        self.system_user = pwd.getpwuid(os.getuid()).pw_name
+
+        self.LOG_DIR = "%s/log" % TALOS_HOME
+
+        self.conf = {
+            'env': 'local',
+        }
+
+        local_conf_path = '%s/conf/local.conf' % TALOS_HOME
+        if os.path.exists(local_conf_path):
+            local_conf = yaml.load(open(local_conf_path))
+            if local_conf:
+                self.conf.update(local_conf)
+
+    def main(self):
+
+        if '-h' in sys.argv[1:]: self.help()
+
+        self.opts, self.args = parse_command_line(sys.argv[1:])
+
+        # parse opts -- so we can say 'talos build yoko' etc
+        if not self.args.has_key('action') and len(self.opts):
+            self.args['action'] = self.opts.pop(0)
+
+        self.expect_param('action')
+
+        if self.args['action'] == 'help':
+            return self.help()
+
+        # old style inventory list, showing services
+        if self.args['action'] == 'list':
+            return self.inventory_list()
+
+        if self.args['action'] == 'show':
+            return self.inventory_show()
+
+        if self.args['action'] == 'add':
+            return self.inventory_add()
+
+        if self.args['action'] == 'rm':
+            return self.inventory_rm()
+
+        if self.args['action'] == 'link':
+            return self.inventory_link()
+
+        if self.args['action'] == 'unlink':
+            return self.inventory_unlink()
+
+        if self.args['action'] == 'hostinfo':
+            return self.inventory_hostinfo()
+
+        if self.args['action'] == 'print-env':
+            print self.conf['env']
+            return
+
+        if not self.args.has_key('product') and len(self.opts):
+            self.args['product'] = self.opts.pop(0)
+
+
+        self.expect_param('product')
+        self.expect_param('user', '-u @myusername')
+
+        # at this point we have a command and product, so we can template out the rest of the ansible variables
+        data_loader = DataLoader()
+        temp_vars = data_loader.load_from_file(os.path.join(TALOS_HOME, 'src', 'playbooks', 'group_vars', 'all'))
+        temp_vars.update({
+            'product': self.args['product'],
+            'talos_env': self.conf['env'],
+            'current_user': self.args['user'],
+            })
+        templar = Templar(loader=data_loader, variables=temp_vars)
+        self.ansible_vars = templar.template(temp_vars)
+
+        self.ANSIBLEFLAGS=[]
+        if self.args.get('verbose'):
+            self.ANSIBLEFLAGS.append("-vvvv")
+
+        if self.args.get('tags'):
+            self.ANSIBLEFLAGS.append("--tags %s" % self.args['tags'])
+
+        if self.args.get('skiptags'):
+            self.ANSIBLEFLAGS.append("--skip-tags %s" % self.args['skiptags'])
+
+        if self.args['action'] == 'deploy' and self.args.get('limit'):
+            self.ANSIBLEFLAGS.append("--limit %s" % self.args['limit'])
+
+        # Overwriting the standard Ansible log path in ansible.cfg allows us to have a separate log per run.
+        self.ANSIBLE_LOG_PATH= "%s/talos-%s-%s-%s.log" % (self.LOG_DIR, self.args['product'], self.args['user'], time.strftime("%m%d%Y-%H%M%S"))
+        print "Log file %s" % self.ANSIBLE_LOG_PATH
+
+        if self.args['action'] == 'build':
+            self.build()
+        elif self.args['action'] == 'codesniff':
+            self.codesniff()
+        elif self.args['action'] == 'start':
+            self.service_action()
+        elif self.args['action'] == 'stop':
+            self.service_action()
+        elif self.args['action'] == 'status':
+            self.service_action()
+        elif self.args['action'] == 'restart':
+            self.service_action()
+        elif self.args['action'] == 'deploy':
+            self.expect_param('build', '-b yoko-feature_my_new_feature-1-0')
+            self.deploy(self.args['build'])
+        elif self.args['action'] == 'build,deploy':
+            if self.args.get('build'):
+                print "--build / -b parameter is not valid with build,deploy\n"
+                self.help()
+            r = self.build()
+
+            if not r:
+                clean_branch = self.args['branch'].replace("-", "_").replace("/", "_")
+                if self.conf['env'] != 'production': clean_branch = "%s_%s" % (self.conf['env'], clean_branch)
+                print "Finding out release version for branch %s" % clean_branch
+                buildNumber = None
+                for line in open("%s/%s/build/buildNumber-%s.properties" % (os.environ["HOME"], self.args['product'], clean_branch)):
+                    m = re.search("^buildNumber0\=(\d+)", line)
+                    if m: buildNumber = int(m.group(1))
+                self.args['build'] = "%s-%s" % (self.args['product'], clean_branch)
+                if buildNumber: self.args['build'] += "-%d" % buildNumber
+                print "Newly built release: %s" % self.args['build']
+
+                self.deploy(self.args['build'])
+        elif self.args['action'] == 'test':
+            self.expect_param('build', '-b yoko-feature_my_new_feature-1-0')
+            self.test(self.args['build'], "gatekeeper")
+        elif self.args['action'] == 'notify':
+            self.notify(self.args['notify-status'], self.args['notifier'], self.args['url'], self.args['build'], caller="webapp")
+        else:
+            print "Unknown action %s" % self.args['action']
+            sys.exit(1)
+
+if __name__ == '__main__':
+    try:
+        TalosCommandLine().main()
+    except talos_data.ValidationError, e:
+        print e

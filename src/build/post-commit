@@ -1,0 +1,35 @@
+#!/bin/bash
+
+latestRevision=$(/usr/bin/git log --pretty=format:'%h:%s' -n 1)
+revision1=$(echo $latestRevision | cut -d':' -f1)
+message1=$(echo $latestRevision | cut -d':' -f2)
+branch=$(git rev-parse --symbolic-full-name --abbrev-ref HEAD)
+summary1="${branch}:${revision1}: ${message1}"
+previousRevision=$(git log --pretty=format:'%h:%s' -n 1 --skip=1)
+revision2=$(echo $previousRevision | cut -d':' -f1)
+message2=$(echo $previousRevision | cut -d':' -f2)
+#Default reviewers group name of your team
+defaultgroup="infrastructure"
+submitedby=$(git config user.name)
+getfile="git --git-dir /home/prod/talos/.git/ diff --name-only HEAD~$1 HEAD"
+files=$($getfile)
+isfrontend="false"
+isphp="false"
+reviewergroup=""
+for i in $files
+do 
+    ext="${i##*.}"
+    if [ "$ext" = "css" ] || [ "$ext" = "js" ]  || [ "$ext" = "html" ];
+      then
+        isfrontend="true"
+    fi
+done
+reviewergroup="$defaultgroup"
+if [ "$isfrontend" = "true" ];
+    then
+            reviewergroup="${reviewergroup},js_and_css_reviewers"
+fi
+
+rbt post --publish --username=labs-reviewers --password=labsadmin132 --submit-as="${submitedby}" --target-groups="${reviewergroup}" --summary="${summary1}" --guess-description --parent=HEAD^ --branch="${branch}"
+
+

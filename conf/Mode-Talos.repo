@@ -1,0 +1,18 @@
+# Glam YUM Repository
+# (c) Techops Team
+# Please contact at techops@glam.com
+# version- 10072013
+
+# Default Base packages
+# $YUM0 is exported through deployment script in /etc/profile  and /root/.bashrc
+# export YUM0=`cat /etc/redhat-release | cut -d " " -f3`
+# $basearch is the yum varibale which is equal to `uname -i`
+
+
+#Additional packages required for Mode-Talos
+[mode-talos]
+name=Mode-Talos
+baseurl=http://bob.glam.colo/yum/Centos/Mode-Talos/$YUM0
+failovermethod=priority
+enabled=1
+gpgcheck=0

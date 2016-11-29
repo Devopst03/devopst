@@ -1,0 +1,76 @@
+---
+# Path          : src/playbooks/common/roles/notification/tasks/hipchat.yml
+# Description   : This is a hipchat notification playbook that should run against localhost
+# Params        : type (deploy or build), status (started, finished or failed)
+
+   - set_fact: bname={{ branch if ( type == 'build' and status == 'started' ) else build_name }} color={{ 'yellow' if status == 'started' else 'green' }}
+
+   - set_fact: emoticon={{ ['(bean)', '(goodnews)', '(dance)', '(success)', '(whoa)', '(salute)', '(rockon)', '(obama)', '(nice)', '(notbad)', '(fonzie)', '(excellent)', '(fireworks)'] | random }}
+     when: status=='finished'
+
+   - set_fact: color="red" emoticon={{ ['(fwp)', '(grumpycat)', '(ohmy)', '(paddlin)', '(sweetjesus)', '(sadpanda)', '(rageguy)', '(poo)', '(motherofgod)', '(doh)'] | random }}
+     when: status=='failed'
+
+   - block:
+     - set_fact: notify_msg="{{ emoticon if status != 'started' else '' }} {{ env | default('') }} {{ type }} {{ status }}! {{ ('Branch:' + ' ' + bname) if (type =='build' and (status == 'started' or status == 'failed')) else ('Package:' + ' ' + bname) }}. {{ ('Deployed services:' + ' ' + serviceSuccessList + '. ') if (type == 'deploy' and (status == 'finished' or status == 'failed')) else '' }}{{ ('Errors encountered while deploying to service '+failedService+'. ') if (type == 'deploy' and status == 'failed') else '' }}Initiated by {{ current_user }} on {{ ansible_hostname }}. {{ status_url }}"
+       when: type!='service_mgt'
+
+     - set_fact: notify_msg="{{ emoticon if status != 'started' else '' }} Action {{ service_action }} has been {{ status }} on {{ env | default('') }}, service(s) {{ serviceSuccessList | default('') }} Initiated by {{ current_user }} on {{ ansible_hostname }}. {{ status_url }}"
+       when: type=='service_mgt'
+
+     - debug: msg="{{ notify_msg }}"
+       when: talos_env is not defined or talos_env != 'production'
+
+     - hipchat:
+         from: "{{ NOTIFICATION.hipchat.from }}"
+         notify: no
+         token: "{{ NOTIFICATION.hipchat.token }}"
+         room: "{{ product }}"
+         msg: "{{ notify_msg }}"
+         color: "{{ color }}"
+       when: talos_env is defined and talos_env == 'production'
+     ignore_errors: true
+
+   # send log to hipchat when an error occurs
+   - block:
+     - set_fact: notify_msg="{{ outputlog }}:\n---\n {{ output.stdout }}"
+
+     - debug: msg="{{ notify_msg }}"
+       when: talos_env is not defined or talos_env != 'production'
+
+     - hipchat:
+         from: "{{ NOTIFICATION.hipchat.from }}"
+         notify: no
+         token: "{{ NOTIFICATION.hipchat.token }}"
+         room: "{{ product }}"
+         msg: "{{ notify_msg }}"
+         color: red
+       when: talos_env is defined and talos_env == 'production'
+     when: status == 'failed' and caller != 'webapp'
+     ignore_errors: true
+
+   # notify team to merge with master when production deploy is successful
+   - block:
+     - set_fact: notify_msg="@all Please merge with master."
+
+     - debug: msg="{{ notify_msg }}"
+       when: talos_env is not defined or talos_env != 'production'
+
+     - hipchat:
+         from: "{{ NOTIFICATION.hipchat.from }}"
+         notify: yes
+         token: "{{ NOTIFICATION.hipchat.token }}"
+         room: "{{ product }}"
+         msg: "{{ notify_msg }}"
+         color: purple
+       when: talos_env is defined and talos_env == 'production'
+     when: ( env is defined and env == 'production' ) and status == 'finished'
+     ignore_errors: true
+
+
+
+
+
+
+
+

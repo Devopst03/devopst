@@ -1,0 +1,89 @@
+---
+#####################################################
+# Main config file                                  #
+# Everything here is applicable to all host groups  #
+#                                                   #
+#####################################################
+
+# This is to control where the build will be installed
+# as well as the user ansible uses to ssh to hosts
+INSTALL_USER: prod
+INSTALL_GROUP: ansible
+DEPLOY_BASE_DIR: "/home/{{ INSTALL_USER }}"
+BASE_PRODUCT_DIR: "{{ DEPLOY_BASE_DIR }}/{{ product }}"
+DEPLOY_DIR: "{{ BASE_PRODUCT_DIR }}/releases"
+LIVE_BUILD_DIR: "{{ DEPLOY_DIR }}/live"
+DEPENDENCIES_BASE_DIR: "{{ DEPLOY_BASE_DIR }}/dependencies"
+
+# This is where the Yum repo lives
+BASE_DIR: "{{ lookup('env', 'HOME') }}"
+REPO_DIR: "{{ BASE_DIR }}/talos-repo"
+BASE_URL: "http://talos{{ '-'+talos_env if talos_env is defined and talos_env != 'production' else ''}}.mode.com/"
+REPO_URL: "{{ BASE_URL }}talos-repo/"
+
+# Products are built and installed here
+LOCAL_PRODUCT_DIR: "{{ BASE_DIR }}/{{ product }}"
+PRODUCT_BUILD_DIR: "{{ LOCAL_PRODUCT_DIR }}/build"
+PRODUCT_RELEASES_DIR: "{{ LOCAL_PRODUCT_DIR }}/releases"
+
+#used for deployments of talos
+TALOS_REPO_URL: git@gitlab.glam.colo:infrastructure/talos.git
+
+#Talos global dependencies.
+TALOS_HOST_DEPENDENCIES_LIST:
+  - supervisor-3.0
+
+###################################################################
+# deploy notification settings
+###################################################################
+NOTIFICATION:
+             email: { to: "{{product}}-dev@glam.com,kens@mode.com", from: "talos@mode.com" }
+             hipchat: { token: "6bb56404dec28da66706ee1e89795c", from: "talos" }
+             jira: {}
+
+
+# Newrelic deploy notification settings
+NEWRELIC:
+        token: { production: "29033c94cc3c4213fbce513b2b1398b1c2605a17c57bbf9",
+                 dev: "1d9b1e1bcf409aeffe76c4f52ae87c04440fc3597df413f"
+        }
+
+#####################################################
+# Inventory/build database details
+#####################################################
+database:
+  localdb:
+    host: localhost
+    user: prod
+    password: prod
+    name: inventory
+
+  dev:
+    host: localhost
+    user: prod
+    password: prod
+    name: inventory
+
+  dev1:
+    host: localhost
+    user: prod
+    password: prod
+    name: inventory
+
+  dev2:
+    host: localhost
+    user: prod
+    password: prod
+    name: inventory
+
+  staging:
+    host: localhost
+    user: prod
+    password: prod
+    name: inventory
+
+  production:
+    host: talos-db.mode.com
+    user: talos
+    password: TalosProduct123!
+    name: inventory

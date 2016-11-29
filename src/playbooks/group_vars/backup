@@ -1,0 +1,23 @@
+---
+#################################################################################
+# PATH					: /home/prod/talos/src/playbooks/group_vars/backup		#
+# USAGE					: Define variables for Backup Playbook					#
+#																				#
+# LAST MODIFIED			: brijesh (brijeshs@mode.com)							#
+# LAST MODIFIED DATE	: 08 APRIL 2015											#
+#################################################################################
+ 
+
+# This is the user that will be used to backup and clear 
+# snapshots for the cassandra system. The user requires
+# to be able to ssh via ssh-keys
+BACKUP_USER_CASSANDRA: cassandra
+BACKUP_USER_ELASTICSEARCH: prod
+
+required_vars:
+  - backup
+  - env
+
+validbackupTypes: ["cassandra","elasticsearch"]
+validenvTypes: ["local","dev","stage","prod"]
+  

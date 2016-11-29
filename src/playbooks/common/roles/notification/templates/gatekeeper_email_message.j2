@@ -1,0 +1,15 @@
+Subject: gatekeeper {{ product }} test has {{ status }}, build name: {{ build_name }}, env: {{ env }}
+From: {{ NOTIFICATION.email.from }}
+To: {{ NOTIFICATION.email.to }}
+Content-Type: text/html; charset="us-ascii"
+Reply-to: {{ NOTIFICATION.email.from }}
+
+<html>
+<body>
+<font face="Courier New" size=3>
+<br>
+Test results url: {{ status_url }}
+<br>
+</font>
+</body>
+</html>

@@ -1,0 +1,12 @@
+---
+# File path     : /home/prod/talos/src/playbooks/test.yml
+# Description   : Playbook that manages unit and post deploy testing.
+# Parameters    : product, env, build_name
+
+  - hosts: localhost
+    user: "{{ INSTALL_USER }}"
+
+    roles:
+#        - { role: notification, type: "{{ test_type }}", status: started, tags: [ 'notification' ] }
+        - { role: "{{ test_type }}" }
+#        - { role: notification, type: "{{ test_type }}", status: finished, tags: [ 'notification' ] }

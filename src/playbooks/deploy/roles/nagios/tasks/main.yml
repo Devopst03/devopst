@@ -1,0 +1,26 @@
+---
+# Path          : src/playbooks/commmon_tasks/nagios/tasks/main.yml
+# Usage         : This role is used to set and remove downtime for nagios managed hosts. Its using a built in ansible variable called ansible_hostname
+#                 which returns the current host thats being deployed to.
+# Params        : downtime (set/remove)
+
+   - name: check if set_downtime.py exists
+     local_action: stat path={{ DEPLOY_BASE_DIR }}/nagios/set_downtime.py
+     register: p
+     become: yes
+
+   - include: get_alerts_script.yml
+     when: p.stat.exists == false
+
+   - name: set alert downtime, status={{ downtime }}
+     local_action: shell chdir={{ DEPLOY_BASE_DIR }}/nagios ./set_downtime.py -M {{ downtime }} -H {{ ansible_hostname }} -C "talos managed deployment"
+     register: alerts_response
+     until: ( 'Success' in alerts_response.stdout )
+     retries: 15
+     delay: 3
+     ignore_errors: true
+
+   - talos_db: alert_status={{ downtime }}
+
+   - fail: msg="Could not turn on alerts, stopping deploy for this host"
+     when: 'not ( "Success" in alerts_response.stdout ) and downtime == "remove"'

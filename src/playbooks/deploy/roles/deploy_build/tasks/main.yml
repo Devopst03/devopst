@@ -1,0 +1,66 @@
+---
+# Path          : src/playbooks/deploy/roles/deploy_build/tasks/main.yml
+# Usage         : This role sets the installed build to live.
+# Params        : product, current_service (defined in deploy.yml), build_name, env
+
+   - name: get latest installed build
+     shell: rpm -qa | grep {{ build_name }}
+     register: latest_build
+
+   - debug: msg={{ latest_build.stdout }}
+
+   - set_fact: latest={{ latest_build.stdout.replace('.noarch','') }}
+
+   - name: set newly installed build as live
+     file: src="{{ DEPLOY_DIR }}/{{ latest }}" dest="{{ LIVE_BUILD_DIR }}" owner={{ INSTALL_USER }} state=link force=yes
+
+   - name: symlink live env specific conf folder to ~/conf
+     file: src="{{ LIVE_BUILD_DIR }}/conf/{{ env }}" dest="{{ DEPLOY_BASE_DIR }}/conf" owner={{ INSTALL_USER }} state=link force=yes
+
+   - name: symlink supervisord conf to /etc/supervisord.conf
+     file: src="{{ LIVE_BUILD_DIR }}/conf/supervisord/supervisord.conf" dest="/etc/supervisord.conf" owner={{ INSTALL_USER }} state=link force=yes
+     become: yes
+
+   - name: set symlinks for all product start scripts in init.d
+     shell: "ln -sf {{ LIVE_BUILD_DIR }}/deploy/{{ product }}-* /etc/init.d/ 2>/dev/null"
+     become: yes
+     tags: symlinking
+
+   - set_fact: common_configs_dir="{{ LIVE_BUILD_DIR }}/conf/common"
+
+   - name: check for common config folder
+     stat: path="{{ common_configs_dir }}"
+     register: configs_dir_check
+
+   - name: copy common configs into conf/<env>
+     shell: "cp -r {{ common_configs_dir }}/* {{ LIVE_BUILD_DIR }}/conf/{{ env }}/"
+     when: configs_dir_check.stat.isdir is defined and configs_dir_check.stat.isdir
+     ignore_errors: true
+
+   - talos_db: service_status=linked
+
+   - name: start {{ current_service }}
+     shell: "service {{ current_service }} start"
+     become: yes
+     ignore_errors: true
+     tags:
+       - restart_services
+
+   - name: stop deploy if {{ current_service }} is not running
+     command: /sbin/service {{ current_service }} status
+     register: service_output
+     until: ('is running' in service_output.stdout) or ('SUCCESS' in service_output.stdout) or ('Running as' in service_output.stdout)
+     become: yes
+     retries: "{{ SERVICE_STATUS_CHECK_RETRIES }}"
+     delay: "{{ SERVICE_STATUS_CHECK_RETRY_DELAY }}"
+     changed_when: False
+     tags:
+       - restart_services
+
+   - name: stop deploy if service could not be started
+     fail: msg="{{ current_service }} DID NOT start succefully, please investigate."
+     when: "'is stopped' in service_output.stdout or 'unrecognized service' in service_output.stdout"
+     tags:
+       - restart_services
+
+   - talos_db: service_status=started

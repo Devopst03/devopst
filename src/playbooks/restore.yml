@@ -1,0 +1,32 @@
+---
+#########################################################################
+# PATH                : /home/prod/talos/src/playbooks/restore.yml      #
+# USAGE               : Playbook for restoring backups                  #
+#                                                                       #
+# LAST MODIFIED       : brijesh (brijeshs@mode.com)                     #
+# LAST MODIFIED DATE  : 22 JANUARY 2016                                 #
+#########################################################################
+
+  - hosts: all # RUN LOCALLY
+    gather_facts: no
+    
+    pre_tasks:
+      - add_host: name={{ item }} groups=serverlist # CREATE LIST OF HOST FROM PARAMETERS
+        with_items: servers
+        register: task        
+    
+  - hosts: serverlist # RUN ON ALL HOSTS PROVIDED
+    gather_facts: no
+    
+    vars_files:
+      - group_vars/restore
+      
+    vars:
+      restore: "list" # IF NOT SPECIFIED THEN DEFAULT ACTION IS list
+      servers: "" 
+          
+    roles:
+      - { role: "restore" }
+    
+            
+   

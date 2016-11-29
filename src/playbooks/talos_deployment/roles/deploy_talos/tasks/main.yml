@@ -1,0 +1,7 @@
+---
+# Path          : src/playbooks/talos_deployment/roles/deploy_talos/tasks/main.yml
+# Usage         : used to deploy talos
+# Params        : branch
+
+
+   - include: ../../../common/tasks/gitcheckout.yml

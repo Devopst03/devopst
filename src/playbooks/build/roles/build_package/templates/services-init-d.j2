@@ -1,0 +1,56 @@
+#!/bin/bash
+. /etc/rc.d/init.d/functions
+
+start() {
+{% if (item is defined) and (item.start is defined and item.start != '') %}
+{% for startCmd in item.start %}
+{{ startCmd }}
+{% endfor %}
+{% elif (item is defined) and (item.start is not defined)%}
+if service supervisord status | grep 'is stopped' > /dev/null; then service supervisord start;fi
+supervisorctl reread; supervisorctl update; supervisorctl start {{ item.name }}:
+{% endif %}
+echo "starting up!!!"
+}
+
+stop() {
+{% if  (item is defined) and (item.stop is defined and item.stop != '') %}
+{% for stopCmd in item.stop %}
+{{ stopCmd }}
+{% endfor %}
+{% elif  (item is defined) and (item.stop is not defined) %}
+supervisorctl stop {{ item.name }}:
+{% endif %}
+echo "stopping down!!!"
+}
+
+status() {
+{% if (item is defined) and (item.status is defined and item.status != '') %}
+{% for statusCmd in item.status %}
+{{ statusCmd }}
+{% endfor %}
+{% elif (item is defined) and (item.status is not defined) %}
+supervisorctl status | grep {{ item.name }}
+{% endif %}
+}
+
+ case "$1" in
+ start)
+ start
+ ;;
+ stop)
+ stop
+ ;;
+ status)
+ status
+ ;;
+ restart)
+ stop
+ start
+ ;;
+ *)
+ echo $"Usage: $prog
+ {start|stop|restart|status}"
+ RETVAL=2
+ esac
+ exit $RETVAL

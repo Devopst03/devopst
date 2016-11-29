@@ -1,0 +1,17 @@
+---
+# Path          : src/playbooks/build/roles/build_package/tasks/artifact.yml
+# Usage         : artifact specific tasks
+# Params        : product name, branch name
+
+   - name: Run maven generate artifact and push snapshot to nexus repo command for talos dev/local
+     shell: chdir={{ BUILD_ROOT }} {{ talos_db }} monitor build {{ build_id }} build_log 'mvn clean deploy -Dbuildroot={{ BUILD_ROOT }} -Dproduct={{ product }} -Dbranch={{ clean_branchname }} -Dbuild_branch={{ branch }} -pl "{{ module }}" -Pgenerate-artifact'
+
+   - name: Run maven generate artifact command for talos dev/local
+     shell: chdir={{ BUILD_ROOT }} {{ talos_db }} monitor build {{ build_id }} build_log 'mvn -B release:clean release:prepare release:perform -Dbuildroot={{ BUILD_ROOT }} -Dproduct={{ product }} -Dbranch={{ clean_branchname }} -Dbuild_branch={{ branch }} -pl "{{ module }}" -Pgenerate-artifact'
+
+   - name: Save latest build name
+     set_fact: build_name="{{ product }}-artifact"
+
+   - name: Save latest build name to MySQL
+     command: "{{ talos_db }} update_build {{ build_id }} build_name='{{ build_name }}'"
+

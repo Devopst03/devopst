@@ -1,0 +1,11 @@
+---
+# Run talos-agent in daemon mode on all hosts in an environment
+
+  - hosts: all
+
+    vars:
+      install_folder: /home/prod/dependencies/talos-agent
+
+    tasks:
+      - name: Start collector in daemon mode
+        command: "{{ install_folder }}/talos_agent.py start --status-url={{ talos_status_url }} --log-root={{ install_folder }}"

@@ -1,0 +1,17 @@
+---
+# File path     : /home/prod/talos/src/playbooks/service_status.yml
+# Description   : Main playbook to display the service status output
+# Parameters    : Mandatory parameter is product name and env name. Optional parameter are host name and service
+
+  - hosts: all
+    any_errors_fatal: True
+    user: "{{ INSTALL_USER }}"
+
+    vars_files:
+        - group_vars/deploy
+
+    vars:
+       current_service: "{{ product }}-{{ service }}"
+
+    roles:
+        - { role: status }

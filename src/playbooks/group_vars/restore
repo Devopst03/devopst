@@ -1,0 +1,13 @@
+---
+#################################################################################
+# PATH					: /home/prod/talos/src/playbooks/group_vars/restore		#
+# USAGE					: Define variables for Restore Playbook					#
+#																				#
+# LAST MODIFIED			: brijesh (brijeshs@mode.com)							#
+# LAST MODIFIED DATE	: 22 JANUARY 2016										#
+#################################################################################
+
+RESTORE_USER_HBASE: root
+RESTORE_USER_MYSQL: prod
+RESTORE_PASSWORD_MYSQL: prod
+

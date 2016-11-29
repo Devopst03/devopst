@@ -1,0 +1,31 @@
+---
+# Path          : src/playbooks/build/roles/build_package/tasks/script.yml
+# Usage         : Task to generate services init.d and supervisord.conf
+
+   - set_fact: product_conf={{ BUILD_ROOT }}/conf/product.conf
+
+   - name: Check if product.conf exists
+     stat: path="{{ product_conf }}"
+     register: product_conf_stat
+
+   - name: fail if {{ product_conf }} does not exist
+     fail: msg="{{ product_conf }} not found !"
+     when: product_conf_stat.stat.exists == false
+
+   - shell: cat "{{ product_conf }}"
+     register: all_services
+     when: product_conf_stat.stat.exists
+
+   - set_fact:
+        services: "{{ all_services.stdout | from_json}}"
+
+   - template: src=services-init-d.j2 dest={{ BUILD_ROOT }}/deploy/{{ item.name }} owner={{ INSTALL_USER }} group={{ INSTALL_USER }} mode=0655
+     with_items: services.services | default([])
+     when: item.name is defined and item.name != ''
+
+   - name: create a supervisord dir in conf
+     file: path="{{ BUILD_ROOT }}/conf/supervisord" state=directory owner={{ INSTALL_USER }} group={{ INSTALL_USER }}
+
+   - template: src=supervisord.conf.j2 dest={{ BUILD_ROOT }}/conf/supervisord/supervisord.conf owner={{ INSTALL_USER }} group={{ INSTALL_USER }} mode=0655
+     when: services.services is defined
+     become: yes

@@ -1,0 +1,8 @@
+---
+# Path          : src/playbooks/common/roles/keys/tasks/main.yml
+# Description   : Commonly used role to ensure access between talos server and deploy hosts
+# Params        : INSTALL_USER ( globally defined in playbooks/group_vars/all )
+# Notes         : For now, not including keys for root. INSTALL_USER will have sudo privs on deploy targets.
+
+   - name: add public key to user authorized keys
+     authorized_key: user={{ INSTALL_USER }} key="{{ lookup('file', '/home/' + INSTALL_USER +'/.ssh/id_rsa.pub') }}"

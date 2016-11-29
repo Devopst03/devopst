@@ -1,0 +1,22 @@
+---
+
+   - name: flag deployment as started in mysql
+     talos_db: deploying=1
+     when: action == 'start'
+
+   - block:
+     - name: flag deployment as successful in mysql
+       talos_db: deploying=0 success=1
+
+     - name: get talos deployment info from mysql
+       talos_db: command=get_host_info
+       register: host_info
+
+     - name: extract header from existing /etc/motd
+       shell: perl -0777 -pe 's/\s*TALOS:.*/\n/s;' < /etc/motd
+       register: previous_motd
+
+     - name: update motd with talos deployment info
+       template: src=motd.j2 dest=/etc/motd
+       become: true
+     when: action == 'finish'

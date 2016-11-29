@@ -1,0 +1,32 @@
+---
+# i) read product.conf
+# ii) get current host assigned services from inventory
+# iii) supervisord.conf based on services assigned to that host
+# iv) copy supervisord.conf /home/prod/<product>/release/live/conf/env/<host>/supervisord.conf
+
+ - hosts: 127.0.0.1
+   connection: local
+
+
+   tasks:
+
+   - set_fact: product_conf=/home/prod/yoko/releases/live/conf/product.conf
+
+   - name: Check if product.conf exists
+     stat: path="{{ product_conf }}"
+     register: product_conf_stat
+
+   - name: fail if {{ product_conf }} does not exist
+     fail: msg="{{ product_conf }} not found !"
+     when: product_conf_stat.stat.exists == false
+
+   #- shell: cat "{{ product_conf }}"
+   - shell: cat /home/prod/yoko/releases/live/conf/product.conf | python -c "exec(\"import json,sys;obj=json.load(sys.stdin);\\nfor services in obj['services']{{':'}} \\n if 'monitored' in services{{':'}} print services['name']\")" 
+     register: monitored_services
+     when: product_conf_stat.stat.exists
+    
+   - debug: var=monitored_services.stdout_lines
+     
+     
+     
+     

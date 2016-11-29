@@ -1,0 +1,85 @@
+---
+# Path          : src/playbooks/build/roles/build_package/tasks/codesniff.yml
+# Usage         : Main role to check code sniffer
+# Params        : product name, branch name tags "codesniff"
+
+   - name: See if we have PHP_Codesniffer
+     stat: path="{{ CODE_SNIFFER_LIB }}/php-codesniffer-tar.gz/scripts/phpcs"
+     register: code_sniffer_lib_stat
+
+   - name: Download Checkstyle and PHP_Codesniffer if necessary
+     shell: 'cd {{ TALOS_HOME }} && mvn process-resources'
+     when: code_sniffer_lib_stat.stat.exists == False
+
+   - name: Find Java JAR files
+     shell: 'echo -n "."; for f in {{ CODE_SNIFFER_LIB }}/*-jar/*.jar; do echo -n ":$f"; done'
+     register: java_jars
+
+   - name: Prep checkstyle command
+     set_fact: checkstyle_command='java -cp {{ java_jars.stdout }} com.puppycrawl.tools.checkstyle.Main -c {{ CODE_SNIFFER_CONF }}/java_checkstyle_rule.xml'
+
+   - set_fact: project_path="{{ BUILD_ROOT }}"
+     when: BUILD_ROOT is defined
+
+   - set_fact: project_path="{{ PRODUCT_RELEASES_DIR }}/live"
+     when: BUILD_ROOT is not defined
+
+   - name: Check if we have a project-specific codesniffer.conf
+     stat: path="{{ project_path }}/conf/codesniffer.conf"
+     register: code_sniffer_path
+
+   - name: Load codesniffer.conf
+     include_vars: "{{ project_path }}/conf/codesniffer.conf"
+     when: code_sniffer_path.stat.exists
+
+   - name: Find php-talos binary
+     shell:  if [ -e /home/prod/dependencies/php-talos-*/bin/php ]; then ls /home/prod/dependencies/php-talos-*/bin/php | head -1; else echo "php";fi;
+     register: php_binary
+
+   - set_fact:
+       php_custom_rulset="{{ item.ruleset|default('') if not item.ruleset|default('') else ',' + project_path + '/' + item.ruleset }}"
+       php_ignore_files="{{ item.ignore|default('') }}"
+       php_source_path="{{ project_path + '/' + item.source | regex_replace('(\s)', '\\1' + project_path + '/') }}"
+     with_items: directories
+     when: code_sniffer_path.stat.exists and not((item.lang is undefined) or (item.lang is none) or (item.lang|trim == '')) and item.lang == "php"
+
+   - set_fact:
+       java_source_path="{{ project_path + '/' + item.source | regex_replace('(\s)', '\\1' + project_path + '/') }}"
+     with_items: directories
+     when: code_sniffer_path.stat.exists and not((item.lang is undefined) or (item.lang is none) or (item.lang|trim == '')) and item.lang == "java"
+
+   # Start: Codesniffer Manual Check.
+   - name: Check files and folder recursively
+     shell: find -L {{ project_path }}/{{ codesniff_path }} -type f -and -not -path "*/.git*"
+     register: file_lists
+     when: codesniff_path is defined
+
+   - name: Run PHP_Codesniffer on PHP files
+     shell: if [[ {{ item }} == *.php ]]; then {{ php_binary.stdout }} -d memory_limit=1024M -d include_path={{ CODE_SNIFFER_LIB }}/php-codesniffer-tar.gz/lib:. -f {{ CODE_SNIFFER_LIB }}/php-codesniffer-tar.gz/scripts/phpcs -- -sp --ignore={{ php_ignore_files|default('') }} --standard={{ CODE_SNIFFER_CONF }}/php_checkstyle_rule.xml{{ php_custom_rulset|default('') }} {{ item }};fi;
+     with_items: file_lists.stdout_lines | default([])
+     when: codesniff_path is defined
+
+   - name: Run Checkstyle on JAVA files
+     shell: if [[ {{ item }} == *.java ]]; then {{ checkstyle_command }} {{ item }}; fi;
+     with_items: file_lists.stdout_lines | default([])
+     when: codesniff_path is defined
+   # End: Codesniffer Manual Check.
+
+
+   # Start: Codesniffer check during build process.
+   - name: Run PHP_Codesniffer on PHP files
+     shell: "{{ php_binary.stdout }} -d memory_limit=1024M -d include_path={{ CODE_SNIFFER_LIB }}/php-codesniffer-tar.gz/lib:. -f {{ CODE_SNIFFER_LIB }}/php-codesniffer-tar.gz/scripts/phpcs -- -sp --ignore={{ php_ignore_files|default('') }} --standard={{ CODE_SNIFFER_CONF }}/php_checkstyle_rule.xml{{ php_custom_rulset|default('') }} {{ php_source_path|default('') }}"
+     with_items: directories
+     register: codesniffer_output
+     ignore_errors: yes
+     when: code_sniffer_path.stat.exists and codesniff_path is not defined and directories is defined and item.lang == "php"
+
+   - name: Run Checkstyle on Java files
+     shell: "{{ checkstyle_command }} {{ java_source_path|default('') }}"
+     register: checkstyle_output
+     with_items: directories
+     ignore_errors: yes
+     when: code_sniffer_path.stat.exists and codesniff_path is not defined and directories is defined and item.lang == "java"
+
+   - include: codesniff-notification.yml
+     when: "(codesniffer_output | failed or checkstyle_output | failed) and codesniff_path is not defined and talos_env == 'production'"

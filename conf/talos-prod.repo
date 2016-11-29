@@ -1,0 +1,87 @@
+# This file is used for testing in dev and staging environments.
+# By enabling these repos when deploying from dev, Talos can still deploy packages from talos.mode.com/talos-repo.
+
+[talos-production]
+name=talos-production repo
+baseurl=http://talos.mode.com/talos-repo/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[caviar-production]
+name=caviar-production repo
+baseurl=http://talos.mode.com/talos-repo/caviar/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[essync-production]
+name=essync-production repo
+baseurl=http://talos.mode.com/talos-repo/essync/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[gatekeeper-production]
+name=gatekeeper-production repo
+baseurl=http://talos.mode.com/talos-repo/gatekeeper/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[hydra-talos-production]
+name=hydra-talos-production repo
+baseurl=http://talos.mode.com/talos-repo/hydra-talos/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[infra-production]
+name=infra-production repo
+baseurl=http://talos.mode.com/talos-repo/infra/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[logstashforwarder-production]
+name=logstashforwarder-production repo
+baseurl=http://talos.mode.com/talos-repo/logstashforwarder/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[quack-fire-production]
+name=quack-fire-production repo
+baseurl=http://talos.mode.com/talos-repo/quack-fire/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[quackfirecoreapp-production]
+name=quackfirecoreapp-production repo
+baseurl=http://talos.mode.com/talos-repo/quackfirecoreapp/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[search2-production]
+name=search2-production repo
+baseurl=http://talos.mode.com/talos-repo/search2/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[talos-test-production]
+name=talos-test-production repo
+baseurl=http://talos.mode.com/talos-repo/talos-test/
+enabled=1
+gpgcheck=0
+keepcache=1
+
+[yoko-production]
+name=yoko-production repo
+baseurl=http://talos.mode.com/talos-repo/yoko/
+enabled=1
+gpgcheck=0
+keepcache=1
+

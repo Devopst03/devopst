@@ -1,0 +1,83 @@
+---
+# Path          : src/playbooks/build/roles/build_package/tasks/main.yml
+# Usage         : Main role to manage the build process
+# Params        : product name, branch name
+
+
+   - name: Get logged in user
+     shell: echo $(whoami)
+     register: build_user_result
+
+   - name: Save logged in user into build_user
+     set_fact: build_user="{{ build_user_result.stdout }}"
+
+   - name: create main product dir
+     file: path="{{ BASE_PRODUCT_DIR }}" state=directory owner={{ INSTALL_USER }} group={{ INSTALL_GROUP }} mode=0775
+     become: yes
+
+   - name: create build dir
+     file: path="{{ PRODUCT_BUILD_DIR }}" state=directory owner={{ INSTALL_USER }} group={{ INSTALL_GROUP }} mode=0775
+     become: yes
+
+   - name: create releases dir
+     file: path="{{ PRODUCT_RELEASES_DIR }}" state=directory owner={{ INSTALL_USER }} group={{ INSTALL_GROUP }} mode=0775
+     become: yes
+
+   - name: Set up local clone of project git repository
+     shell: 'if [ ! -d .source ]; then git clone --bare {{ SCM.git_ssh_url }} .source; fi'
+     args:
+        chdir: '{{ PRODUCT_BUILD_DIR }}'
+
+   - name: Update build branch and ensure it exists
+     shell: 'git fetch origin {{ branch }}:{{ branch }}'
+     args:
+        chdir: '{{ PRODUCT_BUILD_DIR }}/.source'
+
+   - name: Prep DB command line
+     set_fact: talos_db="python {{ TALOS_HOME }}/src/wrapper/talos_db.py {{ talos_env }}"
+
+   - name: Test talos_db.py
+     command: "{{ talos_db }} test"
+
+   - name: Add more info to the build tracking table
+     command: "{{ talos_db }} update_build {{ build_id }} host='{{ ansible_hostname }}' product_dir='{{ BASE_PRODUCT_DIR }}' releases_dir='{{ PRODUCT_RELEASES_DIR }}' git_url='{{ SCM.git_ssh_url }}'"
+
+   - name: Print build id
+     debug: msg="Build ID - http://{{ ansible_hostname }}.glam.colo/build/{{ build_id }}"
+
+   - name: Replace forward slashes and dashes with underscores in the branch name
+     set_fact: clean_branchname="{{ branch.replace('-','_').replace('/','_') }}"
+
+   - name: append env name to branch if its not built on talos product
+     set_fact: clean_branchname="{{ talos_env }}_{{ clean_branchname }}"
+     when: talos_env != 'production'
+
+   - set_fact: clean_buildname="{{ product }}-{{ clean_branchname }}"
+
+   - name: Set build root folder
+     set_fact: BUILD_ROOT="{{ PRODUCT_BUILD_DIR }}/{{ build_id }}_{{ clean_branchname }}"
+
+   - name: Save build root folder
+     command: "{{ talos_db }} update_build {{ build_id }} build_dir={{ BUILD_ROOT }}"
+
+   - name: Git checkout branch
+     shell: 'git clone --branch {{ branch }} {{ PRODUCT_BUILD_DIR }}/.source {{ BUILD_ROOT }}'
+
+   - name: Point project pom.xml at correct parent pom
+     shell: chdir={{ BUILD_ROOT }} {{ TALOS_HOME }}/src/utils/point_project_pom_to_talos_parent_pom.py
+
+   - include: codesniff.yml
+     tags:
+       - codesniff
+
+     # Playbook to generate init.d and supervisord.conf
+   - include: script.yml
+
+   - include: rpm.yml
+     when: flag == "build"
+
+   - include: artifact.yml
+     when: flag == "artifact"
+
+   - name: Mark build as finished in MySQL
+     command: "{{ talos_db }} build_done {{ build_id }}"

@@ -1,0 +1,439 @@
+<?xml version="1.0"?>
+<ruleset name="PHP_CodeSniffer">
+    <description>The Common Coding Standard</description>
+    <rule ref="Generic"/>
+    <rule ref="PEAR"/>
+    <rule ref="PSR2">
+        <exclude name="MySource.Channels.IncludeSystem"/>
+    </rule>
+    <rule ref="Squiz">
+        <exclude name="Squiz.Commenting.BlockComment"/>
+        <exclude name="Squiz.WhiteSpace.OperatorSpacing"/>
+    </rule>
+    <rule ref="Generic.Files.LineEndings">
+        <exclude name="Generic.Files.EndFileNoNewline.Found"/>
+    </rule>
+    <rule ref="Generic.Functions.OpeningFunctionBraceKernighanRitchie"/>
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="100"/>
+            <property name="absoluteLineLimit" value="0"/>
+        </properties>
+    </rule>
+    <rule ref="Generic.Metrics.CyclomaticComplexity">
+        <properties>
+            <property name="absoluteComplexity" value="60"/>
+            <property name="complexity" value="60"/>
+        </properties>
+    </rule>
+    <rule ref="Squiz.PHP.CommentedOutCode">
+        <properties>
+            <property name="maxPercentage" value="70"/>
+        </properties>
+    </rule>
+    <rule ref="Generic.CodeAnalysis.EmptyStatement.NotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.CodeAnalysis.EmptyStatement.DetectedIF">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.CodeAnalysis.ForLoopWithTestFunctionCall.NotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.CodeAnalysis.UnusedFunctionParameter.Found" />
+    <rule ref="Generic.CodeAnalysis.UselessOverridingMethod.Found" />
+    <rule ref="Generic.Files.LowercasedFilename.NotFound">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.Files.LineLength.TooLong">
+    </rule>
+    <rule ref="Generic.Formatting.MultipleStatementAlignment.NotSame">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.Formatting.NoSpaceAfterCast.SpaceFound" >
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.Functions.OpeningFunctionBraceBsdAllman.BraceOnSameLine">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.NamingConventions.CamelCapsFunctionName.NotCamelCaps">
+    </rule>
+    <rule ref="Generic.NamingConventions.CamelCapsFunctionName.ScopeNotCamelCaps">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.PHP.ClosingPHPTag.NotFound">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.PHP.NoSilencedErrors.Discouraged">
+    </rule>
+    <rule ref="Generic.PHP.UpperCaseConstant.Found">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.Strings.UnnecessaryStringConcat.Found">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.WhiteSpace.DisallowSpaceIndent.TabsUsed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.Metrics.NestingLevel">
+        <properties>
+            <property name="nestingLevel" value="7" />
+        </properties>
+    </rule>
+    <rule ref="Generic.WhiteSpace.DisallowSpaceIndent.SpacesUsed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Generic.WhiteSpace.ScopeIndent.Incorrect">
+        <exclude-pattern>*.js</exclude-pattern>
+    </rule>
+    <rule ref="Generic.WhiteSpace.ScopeIndent.IncorrectExact">
+        <severity>0</severity>
+    </rule>
+    <rule ref="MySource.Commenting.FunctionComment.TagNotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="MySource.Commenting.FunctionComment.InvalidTypeHint">
+        <severity>0</severity>
+    </rule>
+    <rule ref="MySource.Commenting.FunctionComment.TypeHintMissing">
+    </rule>
+    <rule ref="MySource.PHP.GetRequestData.SuperglobalAccessed">
+    </rule>
+    <rule ref="MySource.PHP.ReturnFunctionValue.NotAssigned">
+        <severity>0</severity>
+    </rule>
+    <rule ref="MySource.Strings.JoinStrings.ArrayNotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="MySource.Objects.AssignThis.NotSelf">
+    </rule>
+
+    <rule ref="PEAR.Classes.ClassDeclaration.OpenBraceNewLine">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.ClassComment.MissingTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.ClassComment.MissingCategoryTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.ClassComment.MissingPackageTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.ClassComment.MissingAuthorTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.ClassComment.MissingLicenseTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.ClassComment.MissingLinkTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.FileComment.Missing">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.FileComment.MissingVersion">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.FileComment.MissingCategoryTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.FileComment.MissingPackageTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.FileComment.MissingAuthorTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.FileComment.MissingLicenseTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.FileComment.MissingLinkTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Commenting.FileComment.MissingTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.ControlStructures.MultiLineCondition.CloseBracketNewLine">
+        <exclude-pattern>*.js</exclude-pattern>
+    </rule>
+    <rule ref="PEAR.ControlStructures.MultiLineCondition.Alignment">
+        <exclude-pattern>*.js</exclude-pattern>
+    </rule>
+    <rule ref="PEAR.Functions.FunctionCallSignature.ContentAfterOpenBracket">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Functions.FunctionCallSignature.CloseBracketLine">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Functions.FunctionCallSignature.MultipleArguments">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Functions.FunctionCallSignature.Indent">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Functions.FunctionCallSignature.EmptyLine">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.Functions.FunctionDeclaration.BraceOnSameLine">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.NamingConventions.ValidFunctionName.ScopeNotCamelCaps">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.NamingConventions.ValidFunctionName.FunctionNameInvalid">
+    </rule>
+    <rule ref="PEAR.NamingConventions.ValidVariableName.PrivateNoUnderscore">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.NamingConventions.ValidVariableName.PublicUnderscore">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.WhiteSpace.ScopeIndent.Incorrect">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PEAR.WhiteSpace.ScopeIndent.IncorrectExact">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR1.Methods.CamelCapsMethodName.NotCamelCaps">
+    </rule>
+    <rule ref="PSR1.Classes.ClassDeclaration.MissingNamespace">
+    </rule>
+    <rule ref="PSR1.Files.SideEffects.FoundWithSymbols">
+    </rule>
+    <rule ref="PSR2.Classes.ClassDeclaration.OpenBraceNewLine">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR2.Classes.PropertyDeclaration.Underscore">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR2.ControlStructures.ElseIfDeclaration.NotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR2.Methods.MethodDeclaration.Underscore">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR2.Methods.FunctionCallSignature.Indent">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR2.Methods.FunctionCallSignature.CloseBracketLine">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR2.Methods.FunctionCallSignature.ContentAfterOpenBracket">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR2.Methods.FunctionCallSignature.MultipleArguments">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR2.Namespaces.UseDeclaration.MultipleDeclarations">
+        <severity>0</severity>
+    </rule>
+    <rule ref="PSR2.Namespaces.UseDeclaration.SpaceAfterLastUse">
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.CloseBraceNotAligned">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.KeyNotAligned">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.ValueNotAligned">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.SingleLineNotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.DoubleArrowNotAligned">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.IndexNoNewline">
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.ValueNoNewline">
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.FirstValueNoNewline">
+    </rule>
+    <rule ref="Squiz.Classes.ClassDeclaration.EndFileAfterCloseBrace">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Classes.ClassDeclaration.OpenBraceNewLine">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Classes.ClassFileName.NoMatch">
+    </rule>
+    <rule ref="Squiz.Classes.ValidClassName.NotCamelCaps">
+    </rule>
+    <rule ref="Squiz.Commenting.ClassComment.SpacingBefore">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.ClassComment.TagNotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.ClosingDeclarationComment.Missing">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FileComment.Missing">
+        <exclude-pattern>*.php</exclude-pattern>
+    </rule>
+    <rule ref="Squiz.Commenting.FileComment.MissingLicenseTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FileComment.MissingAuthorTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FileComment.MissingCopyrightTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FileComment.MissingPackageTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FileComment.MissingSubpackageTag">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FileComment.PackageTagOrder">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FileComment.SubpackageTagOrder">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FunctionComment.TagNotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FunctionComment.InvalidTypeHint">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.FunctionComment.TypeHintMissing">
+    </rule>
+    <rule ref="Squiz.Commenting.InlineComment.DocBlock">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.LongConditionClosingComment.Missing">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.ControlStructures.InlineIfDeclaration.SpacingBeforeElse">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.ControlStructures.InlineIfDeclaration.SpacingAfterThen">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.ControlStructures.SwitchDeclaration.BreakIndent">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.ControlStructures.SwitchDeclaration.DefaultNoBreak">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.ControlStructures.SwitchDeclaration.SpacingAfterBreak">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.PHP.DisallowSizeFunctionsInLoops.Found">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.PHP.DisallowBooleanStatement.Found">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Files.FileExtension.ClassFound">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Functions.FunctionDeclarationArgumentSpacing.SpaceAfterDefault">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Functions.FunctionDeclarationArgumentSpacing.SpaceBeforeEquals">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Functions.GlobalFunction.Found">
+    </rule>
+    <rule ref="Squiz.Functions.MultiLineFunctionDeclaration.BraceOnSameLine">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.NamingConventions.ValidFunctionName.NotCamelCaps">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.NamingConventions.ValidFunctionName.ScopeNotCamelCaps">
+    </rule>
+    <rule ref="Squiz.NamingConventions.ValidVariableName.MemberNotCamelCaps">
+    </rule>
+    <rule ref="Squiz.NamingConventions.ValidVariableName.NotCamelCaps">
+    </rule>
+    <rule ref="Squiz.NamingConventions.ValidVariableName.PrivateNoUnderscore">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.NamingConventions.ValidVariableName.PublicHasUnderscore">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Objects.ObjectInstantiation.NotAssigned">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Operators.ComparisonOperatorUsage.ImplicitTrue">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Operators.ComparisonOperatorUsage.NotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.PHP.DisallowComparisonAssignment.AssignedBool">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.PHP.DisallowComparisonAssignment.AssignedComparison">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.PHP.DisallowInlineIf.Found">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.PHP.DisallowMultipleAssignments.Found">
+    </rule>
+    <rule ref="Squiz.PHP.DiscouragedFunctions.Discouraged">
+    </rule>
+    <rule ref="Squiz.PHP.Heredoc.NotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.PHP.LowercasePHPFunctions.CallUppercase">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Strings.ConcatenationSpacing.Missing">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Strings.ConcatenationSpacing.PaddingFound">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Strings.DoubleQuoteUsage.ContainsVar">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.WhiteSpace.ControlStructureSpacing.NoLineAfterClose">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.WhiteSpace.FunctionOpeningBraceSpace.ContentBefore">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.WhiteSpace.FunctionClosingBraceSpace.SpacingBeforeClose">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.WhiteSpace.FunctionSpacing.After">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.WhiteSpace.OperatorSpacing.NoSpaceBefore">
+    </rule>
+    <rule ref="Squiz.WhiteSpace.OperatorSpacing.NoSpaceAfter">
+    </rule>
+    <rule ref="Squiz.WhiteSpace.FunctionSpacing.Before">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.WhiteSpace.SuperfluousWhitespace.EndFile">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Zend.NamingConventions.ValidVariableName.ContainsNumbers">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Zend.NamingConventions.ValidVariableName.MemberVarNotCamelCaps">
+    </rule>
+    <rule ref="Zend.NamingConventions.ValidVariableName.MemberVarContainsNumbers">
+    </rule>
+    <rule ref="Zend.NamingConventions.ValidVariableName.NotCamelCaps">
+    </rule>
+    <rule ref="Zend.NamingConventions.ValidVariableName.PrivateNoUnderscore">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.VariableComment.LongNotCapital">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Commenting.VariableComment.TagNotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="MySource.Debug.DebugCode.Found">
+    </rule>
+</ruleset>

@@ -1,0 +1,39 @@
+[supervisord]
+logfile=/home/prod/logs/supervisord.log ; (main log file;default $CWD/supervisord.log)
+logfile_maxbytes=50MB ; (max main logfile bytes b4 rotation;default 50MB)
+logfile_backups=10 ; (num of main logfile rotation backups;default 10)
+loglevel=info ; (log level;default info; others: debug,warn,trace)
+pidfile=/tmp/supervisord.pid ; (supervisord pidfile;default supervisord.pid)
+nodaemon=false ; (start in foreground if true;default false)
+minfds=1024 ; (min. avail startup file descriptors;default 1024)
+minprocs=200 ; (min. avail process descriptors;default 200)
+
+[inet_http_server]
+port=9001
+
+[supervisorctl]
+serverurl=unix:///tmp/supervisor.sock
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory=supervisor.rpcinterface:make_main_rpcinterface
+
+[unix_http_server]
+file=/tmp/supervisor.sock
+chmod=0700
+
+{% if services.services is defined  %}
+{% for service in services.services | unique %}
+{% if service is defined and service.monitored is defined and service.monitored != '' %}
+[program:{{ service.name }}]
+process_name={{ service.name }}_%(process_num)02d
+{% for params in service.monitored %}
+{{ params }}
+{% endfor %}
+user=root
+stdout_logfile=/home/prod/logs/{{ service.name }}.log
+stdout_logfile_maxbytes=10MB
+stderr_logfile=/home/prod/logs/{{ service.name }}.log
+stderr_logfile_maxbytes=10MB
+{% endif %}
+{% endfor %}
+{% endif %}

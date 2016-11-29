@@ -1,0 +1,16 @@
+---
+# Path          : src/playbooks/group_vars/deploy
+# Usage         : Deployment specific settings are defined here
+
+# Specify how many deployed build packages to keep localy on a deployed host
+# The real number is total-1
+DEPLOY_BUILDS_TO_KEEP_NUM: 4
+
+
+# These specify the number of times to check service's status before failing.
+# Service status is checked after it has been started to make sure
+# it returns "running". In some cases services take longer to start,
+# this is why we have retries before failing the deploy process.
+# Delay is measured in seconds.
+SERVICE_STATUS_CHECK_RETRIES: 7
+SERVICE_STATUS_CHECK_RETRY_DELAY: 3

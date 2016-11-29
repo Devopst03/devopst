@@ -1,0 +1,78 @@
+---
+# Path          : src/playbooks/build/roles/build_package/tasks/rpm.yml
+# Usage         : rpm specific tasks
+# Params        : product name, branch name
+
+ 
+   - name: Create a backup dir for older rpms
+     file: path="{{ PRODUCT_RELEASES_DIR }}/{{ clean_buildname }}/previous_rpms" state=directory owner={{ INSTALL_USER }} group={{ INSTALL_GROUP }} mode=0775
+     become: yes
+
+   - name: Save previous rpms for rollback scenarios
+     shell: "mv {{ PRODUCT_RELEASES_DIR }}/{{ clean_buildname }}/*.rpm {{ PRODUCT_RELEASES_DIR }}/{{ clean_buildname }}/RPMS/noarch/*.rpm {{ PRODUCT_RELEASES_DIR }}/{{ clean_buildname }}/previous_rpms/ 2>/dev/null || :"
+
+   - name: Clean up old temp folders
+     shell: "chdir={{ PRODUCT_RELEASES_DIR }}/{{ clean_buildname }} rm -rf BUILD tmp-buildroot BUILDROOT RPMS SRPMS SOURCES SPECS"
+
+   - name: Delete older build rpms
+     shell: "chdir={{ PRODUCT_RELEASES_DIR }}/{{ clean_buildname }}/previous_rpms ls -dt *.rpm | tail -n +{{ BUILD_SETTINGS.rpms_to_keep }} | xargs rm -f"
+     tags: delete_old_rpms
+
+   - name: Delete old rpm branch directories
+     shell: "chdir={{ PRODUCT_RELEASES_DIR }} ls -dt */ | tail -n +{{ BUILD_SETTINGS.branches_to_keep }} | xargs rm -rf"
+     tags: delete_old_rpm_dirs
+
+   - name: Clean up build folders for old failed builds
+     shell: "chdir={{ PRODUCT_BUILD_DIR }} ls -dt */ | tail -n +{{ BUILD_SETTINGS.branches_to_keep }} | xargs rm -rf"
+     tags: delete_old_build_dirs
+
+   - name: Get latest build number from git
+     shell: chdir={{ BUILD_ROOT }} {{ TALOS_HOME }}/src/utils/increment_buildnumber.py {{ product }} {{ clean_branchname }} {{ PRODUCT_BUILD_DIR }}/buildNumber-{{ clean_branchname }}.properties
+     register: buildnumber
+
+   - name: Run maven build command for production
+     shell: chdir={{ BUILD_ROOT }} {{ talos_db }} monitor build {{ build_id }} build_log 'mvn clean package -DbuildNumber={{ buildnumber.stdout }} -Drpmroot={{ BUILD_ROOT }}_rpm -Dbuildroot={{ BUILD_ROOT }} -Dproduct={{ product }} -Dbranch={{ clean_branchname }} -Dbuild_branch={{ branch }} -pl "{{ module }}" -Pgenerate-rpm,preserve-buildnumber-in-git'
+     when: talos_env == 'production'
+
+   - name: Run maven build command for talos dev/local
+     shell: chdir={{ BUILD_ROOT }} {{ talos_db }} monitor build {{ build_id }} build_log 'mvn clean package -DbuildNumber={{ buildnumber.stdout }} -Drpmroot={{ BUILD_ROOT }}_rpm -Dbuildroot={{ BUILD_ROOT }} -Dproduct={{ product }} -Dbranch={{ clean_branchname }} -Dbuild_branch={{ branch }} -pl "{{ module }}" -Pgenerate-rpm'
+     when: talos_env != 'production'
+
+   - name: Get name of generated RPM
+     shell: ls {{ BUILD_ROOT }}_rpm/*/RPMS/*/
+     register: rpm_name
+
+   - name: Save latest build name
+     set_fact: build_name="{{ rpm_name.stdout.replace('.noarch.rpm','') }}"
+
+   - name: Save latest build name to MySQL
+     command: "{{ talos_db }} update_build {{ build_id }} build_name='{{ build_name }}'"
+
+   - name: Create release branch folder
+     file: path="{{ PRODUCT_RELEASES_DIR }}/{{ clean_buildname }}" state=directory owner={{ INSTALL_USER }} group={{ INSTALL_GROUP }} mode=0775
+
+   - name: Move RPM into the releases folder
+     shell: mv {{ BUILD_ROOT }}_rpm/*/RPMS/*/*.rpm {{ PRODUCT_RELEASES_DIR }}/{{ clean_buildname }}/
+
+   - name: Remove temp build folders
+     shell: rm -rf {{ BUILD_ROOT }} {{ BUILD_ROOT }}_rpm
+
+   - name: Create Talos repo dir
+     file: path="{{ REPO_DIR }}" state=directory owner={{ INSTALL_USER }} group={{ INSTALL_GROUP }} mode=0775
+     become: yes
+
+   - name: Create symlink to the product rpms dir in the talos repo dir
+     file: src="{{ PRODUCT_RELEASES_DIR }}" dest="{{ REPO_DIR }}/{{ product }}" state=link force=yes owner={{ INSTALL_USER }} group={{ INSTALL_GROUP }} mode=0775
+     become: yes
+
+   - name: Generate a new yum repodata file with createrepo
+     command: "python {{ TALOS_HOME }}/src/createrepo/createrepo_talos.py {{ REPO_DIR }}/{{ product }}/"
+     become: yes
+     tags:
+        - createrepo
+        - generate_yum_repo
+
+   - name: Generate a new build list
+     shell: chdir={{ TALOS_HOME }}/src/utils ./generateBuildList.py {{ product }} "{{ REPO_DIR }}/"
+     tags: generate_build_list
+

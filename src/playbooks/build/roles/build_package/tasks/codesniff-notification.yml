@@ -1,0 +1,32 @@
+---
+# Path          : src/playbooks/build/roles/build_package/tasks/codesniff-notification.yml
+# Usage         : to send notification if codesniffer check failed during build.
+
+   - hipchat:
+       from: "{{ NOTIFICATION.hipchat.from }}"
+       notify: yes
+       token: "{{ NOTIFICATION.hipchat.token }}"
+       room: "{{ product }}"
+       msg: "Codesniffer test failed for product {{ product }} branch {{ branch }}.  Initiated by: {{ current_user }}"
+       color: red
+
+   - name: Generate timestamp for notification email
+     shell: date +%m.%d.%y.%H%M%S
+     register: current_timestamp
+
+   - name: Make sure Ansible temp dir exists
+     file: path="/tmp/ansible" state=directory
+
+   - set_fact: codesniffer_template_path="/tmp/ansible/ansible_{{ product }}_codesniffer_email_message_{{ current_timestamp.stdout }}"
+
+   - name: Create notification email message
+     template:
+       src: "codesniffer_email_message.j2"
+       dest: "{{ codesniffer_template_path }}"
+
+   - name: Send notification email
+     shell: /usr/sbin/sendmail "{{ NOTIFICATION.email.to }}" < "{{ codesniffer_template_path }}"
+     ignore_errors: true
+
+   - name: Clean up notification email
+     file: path="{{ codesniffer_template_path }}" state=absent

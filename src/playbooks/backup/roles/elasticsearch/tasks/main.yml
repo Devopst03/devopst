@@ -1,0 +1,19 @@
+---
+####################################################################################################
+# PATH                : /home/prod/talos/src/playbooks/backup/roles/elasticsearch/tasks/main.yml   #
+# USAGE               : Main role to take ElasticSearch backup                                     #
+#                                                                                                  #
+# LAST MODIFIED       : brijesh (brijeshs@mode.com)                                                #
+# LAST MODIFIED DATE  : 08 APRIL 2015                                                              #
+####################################################################################################
+
+  ## TAKE SNAPSHOT USING curator 
+  - name: "Take Snapshot"
+    shell: curator --host {{ inventory_hostname }} snapshot --repository snapshots --wait_for_completion false --request_timeout 216000 indices --all-indices
+
+  ## REMOVE SNAPSHOTS OLDER THAN 7 DAYS
+  - name: "Remove Snapshot"
+    shell: curator --host {{ inventory_hostname }} delete snapshots --repository snapshots --time-unit days --older-than 7
+    ignore_errors: True
+    
+       

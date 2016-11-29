@@ -1,0 +1,14 @@
+#!/bin/bash
+set -euo pipefail
+
+echo "Creating talos-yoko-test environment and adding cscpapp89vm* to it"
+talos add env talos-yoko-test
+talos add host cscpapp89vm1 dc=colo
+talos link host=cscpapp89vm1 env=talos-yoko-test product=yoko service=yoko
+talos link host=cscpapp89vm1 env=talos-yoko-test product=yoko service=memcached
+talos link host=cscpapp89vm1 env=talos-yoko-test product=yoko service=workers
+talos add host cscpapp89vm2 dc=colo
+talos link host=cscpapp89vm2 env=talos-yoko-test product=yoko service=bacon
+talos add host cscpapp89vm4 dc=colo
+talos link host=cscpapp89vm4 env=talos-yoko-test product=yoko service=mock-server
+talos link host=cscpapp89vm4 env=talos-yoko-test product=yoko service=jobc

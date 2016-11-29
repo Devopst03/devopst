@@ -1,0 +1,58 @@
+Subject: {{ product }} {{ env }} deploy has {{ status }}, build: {{ build_name }}
+From: {{ NOTIFICATION.email.from }}
+To: {{ NOTIFICATION.email.to }}
+Content-Type: text/html; charset="us-ascii"
+Reply-to: {{ NOTIFICATION.email.from }}
+{% if env == 'production' and status == 'finished' %}
+Importance: High
+{% endif %}
+
+<html>
+<body>
+<font face="Courier New" size=3>
+<br>
+
+{% if env == 'production' and status == 'finished' %}
+<font color="red">
+<b>PLEASE be sure to merge your branches with MASTER.</b>
+<br>
+</font>
+<br>
+<br>
+{% endif %}
+
+<br>
+Started by: {{ current_user }}
+<br>
+Build name: {{ build_name }}  (If build number not specified, then latest was deployed)
+<br>
+Environment: {{ env }}
+<br>
+<br>
+Status: {{ status }}
+<br>
+{% if status == 'failed' %}
+Failed while deploying to: {{ failedService }}
+{% endif %}
+<br>
+{% if status != 'started' %}
+{# Services successfully deployed: {{ serviceSuccessList|replace(",", " ") }} #}
+<br>
+Services successfully deployed:
+{% for s in serviceSuccessList.split(",") %}
+    {% if s != '' %}
+      <br>--- {{ s }}
+    {% endif %}
+{% endfor %}
+<br>
+{% endif %}
+<br>
+{% if status == 'failed' %}
+<br>
+{{ outputlog }}:
+<br>
+{{ output.stdout }}
+{% endif %}
+</font>
+</body>
+</html>

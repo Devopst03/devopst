@@ -1,0 +1,16 @@
+---
+# Path          : src/playbooks/deploy/roles/newrelic/tasks/main.yml
+# Usage         : This role is used to notify newrelic when deployment successfully completes.
+
+
+   # 1) Mode has two accounts, one paid used for production and other free used for all staging and dev environments,
+   #    hence we are using two tokens...
+   - set_fact:
+           token: "{{ NEWRELIC.token.production if env == 'production' else NEWRELIC.token.dev }}"
+           app_name: "{{ product+'-'+env }}"
+
+   - newrelic_deployment: token={{ token }}
+                          app_name={{ app_name }}
+                          user="{{ current_user }}, {{ build_name }}"
+                          description="{{ current_user }} deployed {{ build_name }} to {{ env }}. Deployed service(s) {{ serviceSuccessList }}."
+     ignore_errors: true

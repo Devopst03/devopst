@@ -1,0 +1,214 @@
+---
+# Path          : src/playbooks/talos_deployment/roles/install_talos/tasks/main.yml
+# Description   : Task are done if talos needs to be installed from scratch
+# Params        : branch, env
+
+
+    # encrypted by ansible-vault
+   - include_vars: "{{ item }}"
+     with_items:
+        - "{{ talos_base }}/conf/ssh/ssh.keys"
+        - "{{ talos_base }}/conf/ssh/authorized_keys"
+
+   - name: ensure .ssh directory exists.
+     file:
+         dest: "{{ DEPLOY_BASE_DIR }}/.ssh"
+         mode: 0700
+         owner: prod
+         group: prod
+         state: directory
+     become: yes
+
+   # The following serveral tasks which install keys are using ansible-vault encrypted var files
+   # stored under conf/ssh/
+   - name: install id_rsa
+     copy:
+         content: "{{ ssh.id_rsa.key }}"
+         dest: "{{ ssh.id_rsa.file }}"
+         mode: 0600
+         owner: prod
+         group: prod
+     become: yes
+
+   - name: install id_rsa.pub
+     copy:
+         content: "{{ ssh.id_rsa_pub.key }}"
+         dest: "{{ ssh.id_rsa_pub.file }}"
+         mode: 0644
+         owner: prod
+         group: prod
+     become: yes
+
+   - name: install gitlab id_rsa
+     copy:
+         content: "{{ gitlab.id_rsa.key }}"
+         dest: "{{ gitlab.id_rsa.file }}"
+         mode: 0600
+         owner: prod
+         group: prod
+     become: yes
+
+   - name: install gitlab id_rsa.pub
+     copy:
+         content: "{{ gitlab.id_rsa_pub.key }}"
+         dest: "{{ gitlab.id_rsa_pub.file }}"
+         mode: 0644
+         owner: prod
+         group: prod
+     become: yes
+
+   # - name: install authorized keys
+   #   copy:
+   #       content: "{{ authorized_keys }}"
+   #       dest: "{{ DEPLOY_BASE_DIR }}/.ssh/authorized_keys"
+   #       mode: 0644
+   #       owner: prod
+   #       group: prod
+   #   become: yes
+
+   - name: copy ssh config file
+     copy:
+         src: "{{ talos_base }}/conf/ssh/config"
+         dest: "{{ DEPLOY_BASE_DIR }}/.ssh/config"
+         mode: 0600
+         owner: prod
+         group: prod
+     become: yes
+
+   - name: copy talos repo config to host
+     copy: src={{ talos_base }}/conf/talos-prod.repo dest=/etc/yum.repos.d/talos-prod.repo owner=root group=root mode=0644
+     become: yes
+
+   - name: copy talos dependency repo config to host
+     copy: src={{ talos_base }}/conf/Mode-Talos.repo dest=/etc/yum.repos.d/Mode-Talos.repo owner=root group=root mode=0644
+     become: yes
+
+   - name: install epel release repo
+     yum: name=http://download.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm state=present
+     become: yes
+
+   - name: refresh yum cache
+     command: yum clean expire-cache
+     become: yes
+
+   - name: remove old pycrypto
+     yum: name={{ item }} state=absent
+     with_items:
+        - python-crypto-2.0.1
+     become: yes
+     tags: dependency_install
+
+   - name: install dependencies with yum
+     yum: name={{ item }} state=present
+     with_items:
+        - php
+        - php-devel
+        - php-talos-5.6.20
+        - java-talos
+        - python-setuptools
+        - gcc
+        - sendmail
+        - git-core
+        - python-devel
+        - python-pip
+        - MySQL-python
+        - PyYAML
+        - dos2unix
+        - shflags
+        - jq
+        - rpm-build
+        - createrepo
+        - php-mysql-5.3.3
+        - httpd
+        - nodejs-0.10.44
+        - asciidoc
+        - supervisord-dashboard
+     become: yes
+     tags: dependency_install
+
+    # Need to disable the epel and modetalos repos because need to install an older version of mysql ( for now )
+    # With out this, yum forces to upgrade to 5.6
+   - name: install mysql dependencies
+     yum: name={{ item }} state=present disablerepo=mode-talos,epel
+     with_items:
+        - mysql-5.1.73
+        - mysql-devel-5.1.73
+        - mysql-libs-5.1.73
+        - mysql-server-5.1.73
+     become: yes
+     tags:
+         - dependency_install
+         - db_setup
+
+   - name: symlink node to nodejs so both are available
+     file: src=/usr/bin/node dest=/usr/bin/nodejs owner=root group=root state=link force=yes
+     become: yes
+
+   - name: pip install
+     pip: name={{ item }}
+     with_items:
+        - PyYAML
+        - jinja2
+        - httplib2
+        - PrettyTable
+        - robotframework-sshlibrary
+        - MySQL-python
+     become: yes
+     tags: dependency_install
+
+   - name: easy install
+     easy_install: name={{ item }}
+     with_items:
+        - RBTools
+        - paramiko
+        - pycrypto
+     become: yes
+     tags: dependency_install
+
+   - group: name=ansible state=present
+     become: yes
+
+   # checkout talos repo
+   - include: ../../../common/tasks/gitcheckout.yml
+
+   - name: udpate group
+     shell: "chown -R prod:ansible {{ talos_base }}"
+     become: yes
+
+   - name: run setup.sh {{ env }}
+     shell: "{{ talos_base }}/src/build/setup.sh {{ env }}"
+     become: yes
+
+   - name: setup php.ini for webapp
+     file: src="{{ talos_base }}/conf/php/php.ini" dest=/etc/php.ini owner=root group=root state=link force=yes
+     become: yes
+
+   - name: setup httpd.conf for webapp
+     file: src="{{ talos_base }}/conf/httpd/httpd.conf" dest=/etc/httpd/conf/httpd.conf owner=root group=root state=link force=yes
+     become: yes
+
+   - name: setup talos.conf for webapp
+     file: src="{{ talos_base }}/conf/httpd/talos.conf" dest=/etc/httpd/conf.d/talos.conf owner=root group=root state=link force=yes
+     become: yes
+
+   - name: symlink supervisord-dashboard into talos webapp so it will be available through talos webapp
+     file: src={{ DEPLOY_BASE_DIR }}/dependencies/supervisord-dashboard/ dest={{ talos_base }}/src/webapp/www/supervisord-dashboard owner=prod group=prod state=link force=yes
+     become: yes
+
+   - name: symlink supervisord.php
+     file: src={{ talos_base }}/src/webapp/www/dashboard/supervisor.php dest={{  talos_base }}/src/webapp/www/supervisord-dashboard/application/config/supervisor.php  owner=prod group=prod state=link force=yes
+
+   - name: symlink control.php (For custom redirect to preserve supervisord filter)
+     file: src={{ talos_base }}/src/webapp/www/dashboard/control.php dest={{  talos_base }}/src/webapp/www/supervisord-dashboard/application/controllers/control.php owner=prod group=prod state=link force=yes
+
+   - name: symlink supervisord-dashboard .htaccess
+     file: src={{ talos_base }}/src/webapp/www/dashboard/htaccess dest={{  talos_base }}/src/webapp/www/supervisord-dashboard/public_html/.htaccess owner=prod group=prod state=link force=yes
+
+   - name: restart httpd
+     service: name=httpd state=restarted
+     become: yes
+
+   - include: mysql_setup.yml
+     when: dbsetup == '0'
+     become: yes
+     tags: db_setup

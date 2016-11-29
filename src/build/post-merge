@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Logs all the commits came as a part of merge.
+
+BEFORE_MERGE_SHA=$(git rev-parse --verify ORIG_HEAD)
+AFTER_MERGE_SHA=$(git rev-parse --verify HEAD)
+
+# File containing all the commit sha's already reviewed.
+ARC_FILE=`git config --get reviewboard.arcfile`
+
+RANGE="$BEFORE_MERGE_SHA..$AFTER_MERGE_SHA"
+# Gets the list of commits lying in the range in a chronological order.
+git rev-list "$RANGE" >> $ARC_FILE

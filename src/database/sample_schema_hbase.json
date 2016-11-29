@@ -1,0 +1,39 @@
+{
+	"type" : [
+		{
+			"name" : "hbase",
+			"schema" : [
+				{
+					"name" : "yoko",
+					"tables" : [
+						{ "statement" : "disable 'yoko0'; drop 'yoko0'; create 'yoko0', 'cf0', 'cf00', 'cf000', 'cf0000';" },
+						{ "statement" : "disable 'yoko1'; drop 'yoko1'; create 'yoko1', 'cf1', 'cf11', 'cf111', 'cf1111';" },
+						{ "statement" : "disable 'yoko2'; drop 'yoko2'; create 'yoko2', 'cf2', 'cf22', 'cf222', 'cf2222';" },
+						{ "statement" : "disable 'yoko3'; drop 'yoko3'; create 'yoko3', 'cf3', 'cf33', 'cf333', 'cf3333';" },
+						{ "statement" : "disable 'yoko4'; drop 'yoko4'; create 'yoko4', 'cf4', 'cf44', 'cf444', 'cf4444';" },
+						{ "statement" : "disable 'yoko5'; drop 'yoko5'; create 'yoko5', 'cf5', 'cf55', 'cf555', 'cf5555';" },
+						{ "statement" : "disable 'yoko6'; drop 'yoko6'; create 'yoko6', 'cf6', 'cf66', 'cf666', 'cf6666';" },
+						{ "statement" : "disable 'yoko7'; drop 'yoko7'; create 'yoko7', 'cf7', 'cf77', 'cf777', 'cf7777';" },
+						{ "statement" : "disable 'yoko8'; drop 'yoko8'; create 'yoko8', 'cf8', 'cf88', 'cf888', 'cf8888';" },
+						{ "statement" : "disable 'yoko9'; drop 'yoko9'; create 'yoko9', 'cf9', 'cf99', 'cf999', 'cf9999';" }
+					]
+				},
+				{
+					"name" : "hydra",
+					"tables" : [
+						{ "statement" : "disable 'hydra0'; drop 'hydra0'; create 'hydra0', 'hy0', 'hy00', 'hy000', 'hy0000';" },
+						{ "statement" : "disable 'hydra1'; drop 'hydra1'; create 'hydra1', 'hy1', 'hy11', 'hy111', 'hy1111';" },
+						{ "statement" : "disable 'hydra2'; drop 'hydra2'; create 'hydra2', 'hy2', 'hy22', 'hy222', 'hy2222';" },
+						{ "statement" : "disable 'hydra3'; drop 'hydra3'; create 'hydra3', 'hy3', 'hy33', 'hy333', 'hy3333';" },
+						{ "statement" : "disable 'hydra4'; drop 'hydra4'; create 'hydra4', 'hy4', 'hy44', 'hy444', 'hy4444';" },
+						{ "statement" : "disable 'hydra5'; drop 'hydra5'; create 'hydra5', 'hy5', 'hy55', 'hy555', 'hy5555';" },
+						{ "statement" : "disable 'hydra6'; drop 'hydra6'; create 'hydra6', 'hy6', 'hy66', 'hy666', 'hy6666';" },
+						{ "statement" : "disable 'hydra7'; drop 'hydra7'; create 'hydra7', 'hy7', 'hy77', 'hy777', 'hy7777';" },
+						{ "statement" : "disable 'hydra8'; drop 'hydra8'; create 'hydra8', 'hy8', 'hy88', 'hy888', 'hy8888';" },
+						{ "statement" : "disable 'hydra9'; drop 'hydra9'; create 'hydra9', 'hy9', 'hy99', 'hy999', 'hy9999';" }
+					]
+				}
+			]
+		}
+	]
+}

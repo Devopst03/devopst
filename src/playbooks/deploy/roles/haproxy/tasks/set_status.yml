@@ -1,0 +1,20 @@
+---
+# Path          : src/playbooks/deploy/roles/haproxy/tasks/set_status.yml
+# Usage         : A wrapper for two tasks that depend on the same condition (called by main.yml)
+# Params        : rotation_status
+
+
+   - name: delete old haproxy config file if exists
+     shell: chdir={{ DEPLOY_BASE_DIR }} mkdir -p system; rm -f conf/*_rotation.html system/*_rotation.html
+
+   - name: set haproxy status = {{ rotation_status }} in conf
+     file: path={{ DEPLOY_BASE_DIR }}/conf/{{ rotation_status }}_rotation.html state=touch mode=0664 owner={{ INSTALL_USER }} group={{ INSTALL_USER }}
+
+   - name: set haproxy status = {{ rotation_status }} in system
+     file: path={{ DEPLOY_BASE_DIR }}/system/{{ rotation_status }}_rotation.html state=touch mode=0664 owner={{ INSTALL_USER }} group={{ INSTALL_USER }}
+
+   - talos_db: rotation_status={{ rotation_status }}
+
+   - name: pausing to allow haproxy to put the server back in to rotation
+     pause: seconds=15
+     when: rotation_status == 'in'

@@ -1,0 +1,61 @@
+#!/bin/bash
+#
+# Description:
+#     Git hook for a server side post receive event.
+#     This script expects standard input from git post receive hook.
+#     Kicks off product specific jobs for certain branches.
+#
+# Configuration:
+#     Regexp to trigger. This hook ignores event if branch name doesn't match.
+BRANCH_FILTER='^feature/'
+#     Jenkins host name.
+JENKINS_HOST='builds-2.glam.colo:8080'
+#     Jenkins job name.
+JENKINS_JOB='Mode-Parameterized'
+#     JIRA Ticket regexp. This script extracts JIRA ticket from branch name.
+JIRA_TICKET_RE='((GSM|MIOS)-[0-9]+)'
+
+#  talos server info
+TALOS_PROD=talos.mode.com
+TALOS_USER=prod
+
+
+talos_build_branch() {
+
+   # simply kick off build without waiting
+   ssh $TALOS_USER@$TALOS_PROD "talos -A build -P $1 -B $BRANCH_NAME  -u gitlab >/dev/null 2>&1 &"
+}
+
+#read in git's stdin params for post receive
+read OLD_REV NEW_REV REF_NAME
+
+BRANCH_NAME="${REF_NAME##refs/heads/}"
+BASE_NAME="$(basename "$BRANCH_NAME")"
+
+
+if [[ "$BRANCH_NAME" =~ $BRANCH_FILTER ]] && [[ "$NEW_REV" != "0000000000000000000000000000000000000000" ]]; then
+
+    CURRENT_DIR=`pwd`
+
+    #extract a jira ticket from branchname if available
+    if [[ "$BRANCH_NAME" =~ $JIRA_TICKET_RE ]]; then
+            JIRA_TICKET=${BASH_REMATCH[1]}
+    fi
+
+    # product specific build jobs
+    if [[ $CURRENT_DIR =~ "/yoko-mobile/" ]]; then
+
+        BUNDLE_ID="$(echo $BASE_NAME | cut -d '_' -f 1 | sed 's/[^0-9a-zA-Z]//g')"
+
+        curl -s -X POST "http://${JENKINS_HOST}/job/${JENKINS_JOB}/buildWithParameters?BUILD_DISPLAY_NAME=${BASE_NAME}&BUILD_BUNDLE_ID=${BUNDLE_ID}&BUILD_CURRENT_BRANCH=${BRANCH_NAME}&BUILD_NAME=${JIRA_TICKET}"
+
+    elif [[ $CURRENT_DIR =~ "/yoko/" ]]; then
+           talos_build_branch "yoko"
+
+    elif [[ $CURRENT_DIR =~ "/talos-test/" ]]; then
+           talos_build_branch "talos-test"
+
+    else
+        echo "product not found"
+    fi
+fi

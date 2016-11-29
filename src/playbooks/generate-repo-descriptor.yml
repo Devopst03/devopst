@@ -1,0 +1,8 @@
+---
+
+  - hosts: deploy
+
+    tasks:
+
+       - name: generate talos.repo yum repo descriptor
+         shell: python {{ TALOS_HOME }}/src/wrapper/generate_talos_repo.py {{ REPO_DIR }} {{ REPO_URL }} {{ talos_env }} > {{ TALOS_HOME }}/conf/talos.repo

@@ -1,0 +1,39 @@
+---
+#########################################################################
+# PATH                : /home/prod/talos/src/playbooks/backup.yml       #
+# USAGE               : Playbook for taking backups of servic           #
+#                                                                       #
+# LAST MODIFIED       : brijesh (brijeshs@mode.com)                     #
+# LAST MODIFIED DATE  : 08 APRIL 2015                                   #
+#########################################################################
+
+  - hosts: backup # RUN LOCALLY
+    gather_facts: no
+
+    pre_tasks:
+      - add_host: name={{ item }} groups=serverlist # CREATE LIST OF HOST FROM PARAMETERS
+        with_items: servers
+
+    user: "{{ INSTALL_USER }}" # DEFINED IN group_vars/backup
+
+  - hosts: serverlist # RUN ON ALL HOSTS PROVIDED
+    gather_facts: no
+
+    vars_files:
+      - group_vars/backup
+
+    vars:
+      backup: "list" # IF NOT SPECIFIED THEN DEFAULT ACTION IS list
+      snapshotname: ""
+      servers: ""
+
+    pre_tasks: # CHECK TO SEE IF ALL REQUIRED PARAMETERS ARE PASSED - DEFINED IN group_vars/backup
+       - fail: msg="PARAMETER {{ item }} IS NOT DEFINED OR IS NOT VALID"
+         when: "{{ item }} is not defined or {{ item }} not in valid{{ item }}Types"
+         with_items: required_vars
+
+    roles:
+      - { role: "{{ backup }}" }
+
+
+

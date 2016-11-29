@@ -1,0 +1,22 @@
+---
+# Path          : src/playbooks/group_vars/build
+# Usage         : Build specific settings are defined here
+
+
+# Path to PHP_Codesniffer and Checkstyle libraries
+CODE_SNIFFER_LIB: "{{ TALOS_HOME }}/dependencies"
+CODE_SNIFFER_CONF: "{{ TALOS_HOME }}/conf"
+
+########################################################################################################
+# SCM specific configs
+########################################################################################################
+SCM: {
+      git_ssh_url: "git@gitlab.glam.colo:{{ product }}/{{ product }}.git"
+}
+
+########################################################################################################
+# Tells ansible where to find build packages for each product as well as other local build settings
+########################################################################################################
+BUILD_SETTINGS:
+     rpms_to_keep: 3
+     branches_to_keep: 50
