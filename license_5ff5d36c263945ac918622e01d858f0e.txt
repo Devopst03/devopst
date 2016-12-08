@@ -1,0 +1,12 @@
+{
+    "company_name": "Capgemini", 
+    "contact_email": "avinash.b.pawar@capgemini.com", 
+    "contact_name": "Avinash Pawar", 
+    "hostname": "5ff5d36c263945ac918622e01d858f0e", 
+    "instance_count": 10, 
+    "license_date": 1483095758, 
+    "license_key": "cb09ac4033736bf381149eff83ef079a5a239155d70e58dab6a849428fd38808", 
+    "license_type": "enterprise", 
+    "subscription_name": "Ansible Tower by Red Hat, Standard (10 Managed Nodes) Trial", 
+    "trial": true
+}
